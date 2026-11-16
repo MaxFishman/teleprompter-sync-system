@@ -179,6 +179,21 @@
   .band .sub{ margin:0 auto 22px }
   .note{ margin-top:16px; font-size:12.5px; color:var(--ink-faint); }
 
+  /* "new in 1.6" callout near the download button */
+  .whatsnew{ margin:22px auto 0; max-width:560px; text-align:left;
+    border:1px solid var(--hair); border-radius:14px; background:var(--panel-2); overflow:hidden; }
+  .whatsnew .wn-head{ display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--hair); }
+  .whatsnew .wn-badge{ font-family:var(--mono); font-size:11px; letter-spacing:.12em; color:#1a1205;
+    background:linear-gradient(180deg,var(--amber-soft),var(--amber)); padding:4px 9px; border-radius:7px; }
+  .whatsnew .wn-head b{ font-size:13.5px; font-weight:600; color:var(--ink); }
+  .whatsnew .wn-head a{ margin-left:auto; font-size:12.5px; color:var(--amber-soft); }
+  .whatsnew ul{ list-style:none; display:grid; grid-template-columns:1fr 1fr; gap:7px 18px; padding:14px 16px; }
+  @media (max-width:560px){ .whatsnew ul{ grid-template-columns:1fr; } }
+  .whatsnew li{ font-size:13px; color:var(--ink-dim); display:flex; align-items:baseline; gap:8px; }
+  .whatsnew li::before{ content:""; width:6px; height:6px; border-radius:50%; background:var(--amber);
+    box-shadow:0 0 7px var(--amber-glow); flex:none; transform:translateY(-1px); }
+  .whatsnew li b{ color:var(--ink); font-weight:600; }
+
   /* ---------- scroll experience (native scroll-timeline, progressive) ---------- */
   .scroll-progress{ position:fixed; top:0; left:0; height:3px; width:100%; z-index:60;
     transform-origin:0 50%; transform:scaleX(0);
@@ -452,6 +467,22 @@
     <p class="sub">Free and open source. Download the macOS app and sync your rigs in minutes.</p>
     <a class="btn primary" href="https://github.com/MaxFishman/teleprompter-sync-system/releases/latest" style="font-size:16px;padding:13px 22px">⬇&nbsp; Download for macOS</a>
     <div class="note">Unsigned build — first launch is right-click → <b>Open</b>. Requires Accessibility permission to send input.</div>
+
+    <div class="whatsnew">
+      <div class="wn-head">
+        <span class="wn-badge">NEW IN 1.6</span>
+        <b>Production-ready control</b>
+        <a href="https://github.com/MaxFishman/teleprompter-sync-system/releases/latest">Release notes</a>
+      </div>
+      <ul>
+        <li><b>In-sync confidence</b> — live status, latency &amp; drift alerts</li>
+        <li><b>Session PIN</b> + arm / disarm</li>
+        <li><b>Auto-scroll</b> WPM crawl</li>
+        <li><b>Phone Remote</b> mode</li>
+        <li><b>Mini controller</b> + global hotkeys &amp; tray</li>
+        <li><b>Presets</b> &amp; custom key maps</li>
+      </ul>
+    </div>
   </div>
 </div></section>
 
