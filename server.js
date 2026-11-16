@@ -29,6 +29,11 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 function createHub() {
   let nextAgentId = 1;
   let cmdSeq = 0, latestSeq = 0, armed = true;
+  let commander = null;   // { id, name, at } — the controller currently allowed to drive
+  const COMMANDER_TTL = 8000; // ms; a silent commander auto-releases so no one gets locked out
+  function commanderInfo() {
+    return (commander && Date.now() - commander.at < COMMANDER_TTL) ? { id: commander.id, name: commander.name } : null;
+  }
   const agents = new Map();   // id -> { id, name, ip, res, speed, connectedAt, latency, lastAckSeq, lastAckAt }
   const observers = new Set();  // read-only SSE streams (HUD): receive feed, never counted
   const sentAt = new Map();   // seq -> send time, for round-trip latency
@@ -76,6 +81,16 @@ function createHub() {
     get latestSeq() { return latestSeq; },
     get armed() { return armed; },
     setArmed(v) { armed = !!v; },
+    commander: commanderInfo,
+    claim(id, name) { commander = { id, name: name || 'controller', at: Date.now() }; },
+    release(id) { if (commander && commander.id === id) commander = null; },
+    // Refresh (or auto-claim) command on a sent control cmd; returns false if someone else holds it.
+    touchCommand(id, name) {
+      const c = commanderInfo();
+      if (!c) { commander = { id, name: name || 'controller', at: Date.now() }; return true; }
+      if (c.id === id) { commander.at = Date.now(); return true; }
+      return false;
+    },
   };
 }
 
@@ -176,6 +191,15 @@ function start(opts = {}) {
         return;
       }
       cmd.ts = Date.now();
+      // Control handoff: only the controller "in command" may drive. Diagnostic cmds (identify)
+      // and controllers that don't send a cid (older clients) are not gated — backward compatible.
+      if (cmd.cid && (cmd.type === 'key' || cmd.type === 'mouse' || cmd.type === 'speed')) {
+        if (!hub.touchCommand(cmd.cid, cmd.cname)) {
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ ok: false, notCommander: true, commander: hub.commander() }));
+          return;
+        }
+      }
       // Disarmed: key/mouse are blocked so stray input can't go to air. Speed/config pass.
       if ((cmd.type === 'key' || cmd.type === 'mouse') && !hub.armed) {
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
@@ -226,6 +250,18 @@ function start(opts = {}) {
       return;
     }
 
+    // Control handoff: take or release "command" of the session.
+    if (url.pathname === '/command' && req.method === 'POST') {
+      const body = await readBody(req);
+      let a; try { a = JSON.parse(body); } catch (_) { res.writeHead(400).end('bad json'); return; }
+      if (PIN && a.pin !== PIN) { res.writeHead(403, { 'Access-Control-Allow-Origin': '*' }).end('{"ok":false,"pin":true}'); return; }
+      if (a.action === 'take') hub.claim(a.cid, a.cname);
+      else if (a.action === 'release') hub.release(a.cid);
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ ok: true, commander: hub.commander() }));
+      return;
+    }
+
     // Validate a session PIN (controllers call this before enabling control).
     if (url.pathname === '/pincheck' && req.method === 'POST') {
       const body = await readBody(req);
@@ -243,6 +279,9 @@ function start(opts = {}) {
         armed: hub.armed,
         pinRequired: !!PIN,
         latestSeq: hub.latestSeq,
+        commander: hub.commander(),
+        keypost: !!opts.keypost,   // set by the Electron host — powers the readiness check
+        accessibility: typeof opts.accessibility === 'function' ? !!opts.accessibility() : opts.accessibility !== false,
         agents: [...hub.agents.values()].map((a) => ({
           id: a.id, name: a.name, ip: a.ip, speed: a.speed, connectedAt: a.connectedAt,
           enabled: a.enabled !== false,

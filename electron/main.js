@@ -2,9 +2,10 @@
 // Bundles the hub + agent so hosting/joining needs no Terminal and no separate
 // Node install (the agent runs under Electron's own Node via ELECTRON_RUN_AS_NODE).
 
-const { app, BrowserWindow, ipcMain, screen, shell, dialog, Menu, globalShortcut, Tray, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, shell, dialog, Menu, globalShortcut, Tray, nativeImage, systemPreferences } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const https = require('https');
 const { spawn, execFileSync } = require('child_process');
 const hub = require('../server.js');
@@ -93,7 +94,7 @@ function updateTray() {
 
 async function leaveSession() {
   sessionActive = false; sessionHost = ''; hubRef = null; sessionMode = null; sessionPinValue = '';
-  unregisterHotkeys();
+  unregisterHotkeys(); stopAdvertise();
   stopAgent(); stopHub(); destroyHud(); destroyMini();
   updateTray();
   if (!win || win.isDestroyed()) createWindow();
@@ -182,6 +183,17 @@ function buildMenu() {
       { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' },
       { type: 'separator' }, { role: 'quit' },
     ] }] : []),
+    { label: 'File', submenu: [
+      { label: 'Export Settings…', click: () => exportSettings() },
+      { label: 'Import Settings…', click: () => importSettings() },
+      { type: 'separator' },
+      { label: 'Accessibility Permission…', click: async () => {
+          if (axGranted()) { dialog.showMessageBox(win && !win.isDestroyed() ? win : undefined, { type: 'info', buttons: ['OK'], message: 'Accessibility is already granted.', detail: 'TSS can send keystrokes to your teleprompter app.' }); return; }
+          const r = await dialog.showMessageBox(win && !win.isDestroyed() ? win : undefined, { type: 'warning', buttons: ['Open Settings', 'Later'], defaultId: 0, cancelId: 1,
+            message: 'TSS needs Accessibility permission to send keystrokes.', detail: 'Open System Settings → Privacy & Security → Accessibility and enable Teleprompter Sync System, then relaunch if needed.' });
+          if (r.response === 0) shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility');
+        } },
+    ] },
     { label: 'Edit', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
     { label: 'View', submenu: [{ role: 'reload' }, { role: 'togglefullscreen' }, { type: 'separator' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }] },
     { label: 'Window', submenu: [
@@ -215,6 +227,83 @@ ipcMain.handle('list-apps', () => {
       .filter((n) => n && n !== 'Teleprompter Sync System' && n !== 'Electron')
       .sort((a, b) => a.localeCompare(b));
   } catch (_) { return []; }
+});
+
+// --- Accessibility permission (needed to inject keystrokes) -------------------
+function axGranted() {
+  if (process.platform !== 'darwin') return true;
+  try { return systemPreferences.isTrustedAccessibilityClient(false); } catch (_) { return true; }
+}
+ipcMain.handle('ax-status', () => axGranted());
+ipcMain.handle('ax-prompt', () => {         // shows the system prompt, then returns current state
+  try { if (process.platform === 'darwin') systemPreferences.isTrustedAccessibilityClient(true); } catch (_) {}
+  return axGranted();
+});
+ipcMain.handle('open-accessibility', () => {
+  shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility');
+  return true;
+});
+
+// --- Settings export / import -------------------------------------------------
+async function exportSettings() {
+  const r = await dialog.showSaveDialog(win && !win.isDestroyed() ? win : undefined, {
+    title: 'Export TSS settings', defaultPath: 'tss-settings.json', filters: [{ name: 'JSON', extensions: ['json'] }],
+  });
+  if (r.canceled || !r.filePath) return { ok: false };
+  const cfg = loadConfig(); delete cfg.winBounds;   // window geometry is machine-specific
+  fs.writeFileSync(r.filePath, JSON.stringify({ tss: true, exported: new Date().toISOString(), settings: cfg }, null, 2));
+  return { ok: true, path: r.filePath };
+}
+async function importSettings() {
+  const r = await dialog.showOpenDialog(win && !win.isDestroyed() ? win : undefined, {
+    title: 'Import TSS settings', properties: ['openFile'], filters: [{ name: 'JSON', extensions: ['json'] }],
+  });
+  if (r.canceled || !r.filePaths || !r.filePaths[0]) return { ok: false };
+  let data;
+  try { data = JSON.parse(fs.readFileSync(r.filePaths[0], 'utf8')); } catch (_) { return { ok: false, error: 'Not a valid settings file.' }; }
+  const incoming = data && data.settings ? data.settings : data;   // accept wrapped or raw
+  if (!incoming || typeof incoming !== 'object') return { ok: false, error: 'Not a TSS settings file.' };
+  const cur = loadConfig();
+  saveConfig({ ...cur, ...incoming, winBounds: cur.winBounds });    // keep this machine's window geometry
+  if (win && !win.isDestroyed() && !sessionActive) win.webContents.reload();   // re-render the launch screen
+  return { ok: true };
+}
+ipcMain.handle('export-settings', () => exportSettings());
+ipcMain.handle('import-settings', () => importSettings());
+
+// --- Zero-config discovery (Bonjour / mDNS) -----------------------------------
+// Hosts advertise _tss._tcp; the Join screen lists them so no IP typing is needed.
+let bonjour = null, mdnsService = null, mdnsBrowser = null;
+const discovered = new Map();   // name -> { name, host, port }
+function mdns() {
+  if (bonjour) return bonjour;
+  try { const { Bonjour } = require('bonjour-service'); bonjour = new Bonjour(); } catch (_) { bonjour = null; }
+  return bonjour;
+}
+function advertiseSession(port) {
+  const b = mdns(); if (!b) return;
+  try {
+    mdnsService = b.publish({ name: 'TSS · ' + os.hostname().replace(/\.local$/, ''), type: 'tss', port, txt: { v: app.getVersion() } });
+  } catch (_) {}
+}
+function stopAdvertise() {
+  try { if (mdnsService) mdnsService.stop(); } catch (_) {}
+  mdnsService = null;
+}
+function startDiscovery() {
+  const b = mdns(); if (!b || mdnsBrowser) return;
+  try {
+    mdnsBrowser = b.find({ type: 'tss' });
+    mdnsBrowser.on('up', (s) => {
+      const ip = (s.addresses || []).find((a) => /^\d+\.\d+\.\d+\.\d+$/.test(a)) || (s.referer && s.referer.address);
+      if (ip) discovered.set(s.name, { name: s.name, host: 'http://' + ip + ':' + s.port, port: s.port });
+    });
+    mdnsBrowser.on('down', (s) => { if (s && s.name) discovered.delete(s.name); });
+  } catch (_) {}
+}
+ipcMain.handle('list-sessions', () => {
+  startDiscovery();
+  return [...discovered.values()].filter((s) => !mdnsService || s.port !== (hubServer && hubServer.address() && hubServer.address().port));
 });
 
 ipcMain.handle('check-updates', () => getUpdate());
@@ -329,8 +418,9 @@ function spawnAgent(args) {
 }
 
 async function startHub(preferred, pin) {
-  try { return await hub.start({ port: preferred, pin }); }
-  catch (_) { return await hub.start({ port: 0, pin }); } // port busy → let the OS pick one
+  const opts = { pin, keypost: !!keypostPath, accessibility: axGranted };   // powers the readiness check
+  try { return await hub.start({ port: preferred, ...opts }); }
+  catch (_) { return await hub.start({ port: 0, ...opts }); } // port busy → let the OS pick one
 }
 
 app.whenReady().then(() => {
@@ -338,6 +428,7 @@ app.whenReady().then(() => {
   buildMenu();
   createTray();          // tray is always present; menu reflects session state
   createWindow();
+  startDiscovery();      // begin listening for nearby sessions to join
   app.on('activate', () => openConsole());
 });
 // On macOS, closing the window keeps a live session hosting in the background (tray stays).
@@ -362,6 +453,7 @@ app.on('before-quit', (e) => {
     return;
   }
   unregisterHotkeys(); stopAgent(); stopHub(); destroyHud(); destroyMini();
+  stopAdvertise(); try { if (bonjour) bonjour.destroy(); } catch (_) {}
   if (trayTimer) clearInterval(trayTimer);
   if (tray) { try { tray.destroy(); } catch (_) {} tray = null; }
 });
@@ -378,6 +470,7 @@ ipcMain.handle('host-session', async (_e, opts = {}) => {
   spawnAgent(args);
   sessionActive = true; sessionMode = 'host';
   sessionHost = `http://localhost:${res.port}`;
+  advertiseSession(res.port);   // let backup rigs discover this host over mDNS
   registerHotkeys();
   createHud();
   updateTray();

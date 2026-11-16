@@ -103,6 +103,35 @@
   .km-key.cap{ color:var(--ink); border-color:var(--amber); box-shadow:0 0 0 3px rgba(244,168,54,.14) }
   #kmReset{ margin-top:11px; cursor:pointer; font-size:12px; color:var(--ink-dim); background:none; border:0; text-decoration:underline; padding:0 }
 
+  /* accessibility-permission banner */
+  .axwarn{ margin:16px 0 0; padding:13px 15px; border-radius:12px;
+    background:linear-gradient(180deg,#2a1414,#1f0f0f); border:1px solid #6a2a2a; }
+  .axwarn .aw-row{ display:flex; align-items:center; gap:11px; }
+  .axwarn .aw-dot{ width:9px; height:9px; border-radius:50%; background:#ff6b63; box-shadow:0 0 10px rgba(255,107,99,.5); flex:none; }
+  .axwarn .aw-txt{ flex:1; min-width:0; }
+  .axwarn .aw-txt b{ font-size:13.5px; color:#ff9b95; display:block; }
+  .axwarn .aw-txt span{ font-size:12px; color:var(--ink-dim); }
+  .axwarn .aw-actions{ display:flex; gap:8px; margin-top:11px; }
+  .axwarn button{ flex:1; cursor:pointer; min-height:38px; border-radius:10px; font-family:var(--sans); font-size:13px; }
+  .axwarn .aw-open{ color:#1a1205; font-weight:600; border:0; background:linear-gradient(180deg,var(--amber-soft),var(--amber)); }
+  .axwarn .aw-recheck{ color:var(--ink-dim); background:var(--panel-2); border:1px solid var(--hair); }
+
+  /* nearby sessions (mDNS discovery) */
+  .nearby{ margin:0 0 16px; }
+  .nearby .nb-lab{ font-size:12px; color:var(--ink-dim); margin:0 0 7px 2px; display:flex; align-items:center; gap:7px; }
+  .nearby .nb-lab .nb-live{ width:7px; height:7px; border-radius:50%; background:var(--link); box-shadow:0 0 7px rgba(83,224,138,.5); }
+  .nb-list{ display:flex; flex-direction:column; gap:7px; }
+  .nb-item{ cursor:pointer; display:flex; align-items:center; gap:10px; padding:11px 13px; border-radius:11px;
+    background:var(--well); border:1px solid var(--hair); color:var(--ink); font-size:13.5px; text-align:left; width:100%; }
+  .nb-item:hover{ border-color:var(--amber); }
+  .nb-item .nb-dot{ width:8px; height:8px; border-radius:50%; background:var(--link); box-shadow:0 0 8px rgba(83,224,138,.5); flex:none; }
+  .nb-item .nb-host{ margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--ink-faint); }
+
+  /* export / import links */
+  .cfgrow{ display:flex; gap:16px; justify-content:center; margin-top:14px; }
+  .cfgrow button{ cursor:pointer; background:none; border:0; color:var(--ink-faint); font-size:12px; text-decoration:underline; font-family:var(--sans); }
+  .cfgrow button:hover{ color:var(--ink-dim); }
+
   [hidden]{ display:none !important }
 </style>
 </head>
@@ -125,6 +154,17 @@
       <div class="up-actions">
         <button class="up-btn" id="upGet">Download &amp; install</button>
         <div class="up-prog" id="upProg" hidden><div class="up-bar" id="upBar"></div></div>
+      </div>
+    </div>
+
+    <div class="axwarn" id="axWarn" hidden>
+      <div class="aw-row">
+        <span class="aw-dot"></span>
+        <div class="aw-txt"><b>Accessibility permission needed</b><span>TSS can't send keystrokes until you allow it in System Settings.</span></div>
+      </div>
+      <div class="aw-actions">
+        <button type="button" class="aw-open" id="axOpen">Open Accessibility settings</button>
+        <button type="button" class="aw-recheck" id="axRecheck">Re-check</button>
       </div>
     </div>
 
@@ -164,6 +204,10 @@
 
     <!-- JOIN -->
     <form id="joinForm" hidden>
+      <div class="nearby" id="nearby" hidden>
+        <div class="nb-lab"><span class="nb-live"></span>Nearby sessions · tap to fill the address</div>
+        <div class="nb-list" id="nbList"></div>
+      </div>
       <div class="field">
         <label>Host address (from the host's JOIN panel)</label>
         <input id="jHost" placeholder="192.168.1.42  or  http://192.168.1.42:3000" autocomplete="off" />
@@ -199,7 +243,11 @@
 
     <div class="err" id="err"></div>
     <datalist id="appList"></datalist>
-    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--hair);text-align:center;font-size:12px;color:var(--ink-faint)">Built by <b style="color:var(--ink-dim);font-weight:600">Max Fishman</b></div>
+    <div class="cfgrow">
+      <button type="button" id="cfgExport">Export settings</button>
+      <button type="button" id="cfgImport">Import settings</button>
+    </div>
+    <div style="margin-top:14px;padding-top:16px;border-top:1px solid var(--hair);text-align:center;font-size:12px;color:var(--ink-faint)">Built by <b style="color:var(--ink-dim);font-weight:600">Max Fishman</b></div>
   </div>
 
 <script>
@@ -348,6 +396,43 @@
     });
     $('update').hidden = false;
   })();
+
+  // --- Accessibility-permission banner ---
+  async function refreshAx(){
+    if (!window.tss || !window.tss.axStatus) return;
+    let ok = true; try { ok = await window.tss.axStatus(); } catch (_) {}
+    $('axWarn').hidden = !!ok;
+  }
+  $('axOpen').addEventListener('click', async function(){
+    try { await window.tss.axPrompt(); } catch (_) {}
+    try { await window.tss.openAccessibility(); } catch (_) {}
+    setTimeout(refreshAx, 900);
+  });
+  $('axRecheck').addEventListener('click', refreshAx);
+  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'visible') refreshAx(); });
+  refreshAx();
+
+  // --- Nearby sessions (mDNS discovery) ---
+  async function refreshNearby(){
+    if (!window.tss || !window.tss.listSessions) return;
+    let list = []; try { list = (await window.tss.listSessions()) || []; } catch (_) {}
+    const nb = $('nearby'), lst = $('nbList');
+    if (!list.length){ nb.hidden = true; lst.innerHTML = ''; return; }
+    nb.hidden = false;
+    lst.innerHTML = list.map(function(s){
+      return '<button type="button" class="nb-item" data-host="' + String(s.host).replace(/"/g, '&quot;') + '">' +
+        '<span class="nb-dot"></span>' + (s.name || 'TSS session').replace(/</g, '&lt;') +
+        '<span class="nb-host">' + String(s.host).replace(/^https?:\/\//, '') + '</span></button>';
+    }).join('');
+    lst.querySelectorAll('.nb-item').forEach(function(b){ b.addEventListener('click', function(){ $('jHost').value = b.dataset.host; err.textContent = ''; }); });
+  }
+  refreshNearby(); setInterval(refreshNearby, 2500);
+
+  // --- Export / import settings ---
+  $('cfgExport').addEventListener('click', async function(){ try { await window.tss.exportSettings(); } catch (_) {} });
+  $('cfgImport').addEventListener('click', async function(){
+    try { const r = await window.tss.importSettings(); if (r && r.error) err.textContent = r.error; } catch (_) {}
+  });
 
   // prefill from the last session + populate the running-app picker
   (async function(){

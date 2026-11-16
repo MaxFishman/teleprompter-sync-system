@@ -3,6 +3,29 @@
 All notable changes to **Teleprompter Sync System (TSS)** are recorded here.
 Format based on [Keep a Changelog](https://keepachangelog.com/). Dates are ISO (YYYY-MM-DD).
 
+## [1.11.0] - 2026-11-16
+
+### Added
+- **Control handoff / view-only** — only the controller "in command" can drive, so a second operator
+  or a phone can watch without fighting for control. A header chip shows who's driving; **Take control**
+  hands it over cleanly, **Go view-only** releases it, and a silent commander auto-releases after 8s so
+  no one gets locked out. Server-enforced. (`server.js`, `public/index.html`)
+- **MIDI controller mapping** — a settings page (🎹 **MIDI**) that maps a MIDI controller's keys, pads,
+  or knobs to any TSS action (scroll, page, top/bottom, play, roll, all-stop, speed). Click **Learn**,
+  press the control; mappings persist per device and drive TSS whenever you're in command.
+  (`public/index.html`)
+- **Pre-show readiness check** — a one-click panel (✓ **Ready?**) that verifies rigs connected, armed,
+  in sync, latency healthy, you're in command, Accessibility granted, the mouse helper is built, and a
+  PIN is set — with a clear **Ready to roll** / **Not ready** verdict. (`public/index.html`, `server.js`)
+- **Accessibility-permission helper** — detects when macOS Accessibility isn't granted and offers a
+  one-click path to the setting (launch-screen banner + a **File → Accessibility Permission…** menu
+  item), instead of silently failing to inject. (`electron/main.js`, `electron/launch.html`)
+- **Zero-config discovery (Bonjour / mDNS)** — hosts advertise `_tss._tcp`; the Join screen lists
+  **Nearby sessions** to tap, so backup rigs no longer need the host's IP typed in.
+  (`electron/main.js`, `electron/launch.html`)
+- **Settings export / import** — move presets, key maps, and preferences between machines as a JSON
+  file (**File** menu + links on the launch screen). (`electron/main.js`, `electron/launch.html`)
+
 ## [1.10.0] - 2026-11-16
 
 ### Added

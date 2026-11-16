@@ -826,10 +826,10 @@
     <div class="note req">macOS 11 Big Sur or later · Apple&nbsp;silicon (M1 or newer)</div>
     <div class="note">Unsigned build — first launch is right-click → <b>Open</b>. Requires Accessibility permission to send input.</div>
     <div class="note sha" id="shaNote">
-      <span><b>SHA-256</b> · v1.10.0</span>
-      <code id="shaHex">66301492bc733a1caff0c81d98f97b7651a9d1ea92dc90d1c26ea7ef164c10a3</code>
+      <span><b>SHA-256</b> · v1.11.0</span>
+      <code id="shaHex">d342eb0f4b0f2a80fd40d4263415b31c67a1a48f654145738c17a5f7282d5436</code>
       <button class="shacopy" id="shaCopy">Copy</button>
-      <span class="shacmd">verify after download: <code>shasum -a 256 Teleprompter-Sync-System-1.10.0.dmg</code></span>
+      <span class="shacmd">verify after download: <code>shasum -a 256 Teleprompter-Sync-System-1.11.0.dmg</code></span>
     </div>
 
     <div class="whatsnew">
@@ -925,7 +925,7 @@
         // The baked SHA-256 is for v1.10.0 — if a newer build has shipped, hide it
         // rather than show a checksum that won't match the downloaded DMG.
         var sha = document.getElementById('shaNote');
-        if (sha && ver !== '1.10.0') sha.style.display = 'none';
+        if (sha && ver !== '1.11.0') sha.style.display = 'none';
       })
       .catch(function(){});
   })();
