@@ -173,6 +173,19 @@
     border:1px solid var(--hair); border-radius:999px; padding:7px 14px; }
   .chip b{ color:var(--ink) }
 
+  /* FAQ */
+  .faq{ margin-top:30px; display:flex; flex-direction:column; gap:10px; }
+  .faq details{ border:1px solid var(--hair); border-radius:14px; overflow:hidden;
+    background:linear-gradient(180deg,var(--panel),var(--bg-2)); }
+  .faq summary{ cursor:pointer; list-style:none; padding:17px 20px; font-size:16px; font-weight:600;
+    color:var(--ink); display:flex; align-items:center; gap:12px; }
+  .faq summary::-webkit-details-marker{ display:none; }
+  .faq summary::after{ content:"+"; margin-left:auto; color:var(--amber-soft); font-family:var(--mono); font-size:19px; }
+  .faq details[open] summary::after{ content:"\2212"; }
+  .faq .a{ padding:0 20px 18px; font-size:14px; color:var(--ink-dim); line-height:1.65; max-width:62ch; }
+  .faq .a code{ font-family:var(--mono); color:var(--ink); }
+  .faq .a a{ color:var(--amber-soft); text-decoration:underline; }
+
   /* download band */
   .band{ margin-top:10px; text-align:center; padding:52px 24px;
     background:radial-gradient(80% 120% at 50% 0%, #1a212b 0%, var(--bg-2) 70%);
@@ -333,6 +346,7 @@
   <a href="#tour" data-sec="tour" title="A closer look"></a>
   <a href="#pro" data-sec="pro" title="Production-grade"></a>
   <a href="#how" data-sec="how" title="How it works"></a>
+  <a href="#faq" data-sec="faq" title="FAQ"></a>
   <a href="#get" data-sec="get" title="Download"></a>
 </nav>
 
@@ -346,6 +360,7 @@
     <a class="lnk" href="#features">Features</a>
     <a class="lnk" href="#tour">A closer look</a>
     <a class="lnk" href="#how">How it works</a>
+    <a class="lnk" href="#faq">FAQ</a>
     <a class="lnk" href="https://github.com/MaxFishman/teleprompter-sync-system">GitHub</a>
   </div>
   <a class="btn primary" href="https://github.com/MaxFishman/teleprompter-sync-system/releases/latest">Download</a>
@@ -535,6 +550,41 @@
   </div>
 </div></section>
 
+<section class="io" id="faq"><div class="wrap">
+  <div class="lbl">QUESTIONS</div>
+  <h2>Good to know.</h2>
+  <div class="faq">
+    <details>
+      <summary>Does it need an internet connection?</summary>
+      <div class="a">No. TSS runs entirely on your local Wi-Fi / LAN — commands never leave the room, and there are no accounts or cloud. (The app can check GitHub for updates, but that's optional.)</div>
+    </details>
+    <details>
+      <summary>Which teleprompter apps does it work with?</summary>
+      <div class="a">Any of them. TSS is a control surface, not a teleprompter — it injects the same scroll, page, and click into whatever app you name, so it drives the teleprompter software you already use. If your app uses non-standard keys, remap them with custom key mapping.</div>
+    </details>
+    <details>
+      <summary>Is there a Windows version?</summary>
+      <div class="a">Not yet — the current build is macOS 11 or later. The hub, console, and sync protocol are OS-agnostic, so Windows support is on the roadmap.</div>
+    </details>
+    <details>
+      <summary>Is it free?</summary>
+      <div class="a">Yes — free and open source (<a href="https://github.com/MaxFishman/teleprompter-sync-system/blob/main/LICENSE">MIT</a>). Download the macOS app, or run it from source.</div>
+    </details>
+    <details>
+      <summary>How many rigs can I sync?</summary>
+      <div class="a">As many as you like on the same network — the primary plus one or more backups. Every rig acknowledges each command, so you always see them stay in sync, with per-rig latency and drift alerts.</div>
+    </details>
+    <details>
+      <summary>Do I need to install anything on the backup?</summary>
+      <div class="a">Just the TSS app (or the scripts) — open it, choose <b>Join</b>, and it mirrors every scroll and click. A phone or tablet can join by scanning the QR with no install at all.</div>
+    </details>
+    <details>
+      <summary>Is my script or data sent anywhere?</summary>
+      <div class="a">No. TSS only relays key and mouse commands over your LAN. It never sees, stores, or transmits your script.</div>
+    </details>
+  </div>
+</div></section>
+
 <section class="io" id="get"><div class="wrap">
   <div class="band">
     <div class="lbl" style="display:block;margin-bottom:8px">READY WHEN THE PRIMARY ISN'T</div>
@@ -617,7 +667,7 @@
         }
       });
     }, { rootMargin: '-45% 0px -45% 0px', threshold: 0 });
-    ['top','features','tour','pro','how','get'].forEach(function(id){
+    ['top','features','tour','pro','how','faq','get'].forEach(function(id){
       var el = document.getElementById(id); if (el) obs.observe(el);
     });
   })();

@@ -3,6 +3,17 @@
 All notable changes to **Teleprompter Sync System (TSS)** are recorded here.
 Format based on [Keep a Changelog](https://keepachangelog.com/). Dates are ISO (YYYY-MM-DD).
 
+## [1.7.0] - 2026-11-16
+
+### Added
+- **Drift / disconnect alarm** — an opt-in (default on) alert that beeps and flashes the console
+  the moment a rig drifts or drops. Toggle it from the header; the setting is remembered.
+  (`public/index.html`)
+- **Latency-coded rig health + sparklines** — each rig's lamp is now green / amber / red by
+  round-trip latency, with a live sparkline of recent values. (`public/index.html`)
+- **Website FAQ** — a short Q&A (internet, app compatibility, Windows, pricing, privacy).
+  (`docs/index.html`)
+
 ## [1.6.0] - 2026-11-16
 
 ### Added
