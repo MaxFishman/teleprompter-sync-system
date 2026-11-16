@@ -1,0 +1,65 @@
+{
+  "name": "teleprompter-sync-system",
+  "productName": "Teleprompter Sync System",
+  "version": "1.0.0",
+  "description": "TSS — sync two redundant teleprompter rigs: one keyboard & mouse drives both, over the local network.",
+  "author": "Fishman",
+  "license": "MIT",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "server": "node server.js",
+    "icon": "bash build/build-icon.sh",
+    "dist": "npm run icon && electron-builder --mac dmg",
+    "pack": "electron-builder --dir"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "org.fishman.tss",
+    "productName": "Teleprompter Sync System",
+    "asar": false,
+    "files": [
+      "electron/**",
+      "public/**",
+      "server.js",
+      "agent.js",
+      "keypost.swift",
+      "node_modules/**"
+    ],
+    "extraResources": [
+      {
+        "from": "keypost.swift",
+        "to": "keypost.swift"
+      }
+    ],
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.icns",
+      "artifactName": "Teleprompter-Sync-System-${version}.${ext}"
+    },
+    "dmg": {
+      "title": "Teleprompter Sync System",
+      "contents": [
+        {
+          "x": 140,
+          "y": 180
+        },
+        {
+          "x": 400,
+          "y": 180,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
+  }
+}

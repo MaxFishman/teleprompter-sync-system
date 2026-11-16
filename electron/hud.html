@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>TSS — live</title>
+<style>
+  :root{
+    --panel-1:#171b21; --panel-2:#1f242b; --well:#0c0e12; --hair:#2a3038;
+    --ink:#edeff2; --ink-dim:#7e8893; --ink-faint:#525b65;
+    --amber:#f4a836; --amber-soft:#f6bd63; --amber-glow:rgba(244,168,54,.55);
+    --live:#53e08a; --live-glow:rgba(83,224,138,.55);
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:transparent;overflow:hidden}
+  body{ font-family:var(--sans); color:var(--ink); padding:11px; -webkit-user-select:none; cursor:pointer; }
+  .hud{ height:100%; border-radius:15px; padding:13px 15px;
+    background:linear-gradient(180deg,var(--panel-2),var(--panel-1));
+    border:1px solid var(--hair);
+    box-shadow:0 1px 0 rgba(255,255,255,.06) inset, 0 16px 34px -14px #000, 0 0 0 1px #000;
+    display:flex; flex-direction:column; gap:9px; }
+  .top{ display:flex; align-items:center; gap:9px; }
+  .glyph{ width:22px; height:22px; border-radius:6px; position:relative; flex:none;
+    background:radial-gradient(circle at 35% 30%,#2b323b,#10141a); border:1px solid var(--hair); }
+  .glyph i{ position:absolute; left:5px; right:5px; height:2px; border-radius:2px;
+    background:var(--amber); box-shadow:0 0 6px var(--amber-glow); }
+  .glyph i:nth-child(1){ top:7px; opacity:.95 } .glyph i:nth-child(2){ top:11px; opacity:.55 }
+  .glyph i:nth-child(3){ top:15px; opacity:.3 }
+  .title{ font-size:11px; font-weight:650; letter-spacing:.11em; color:var(--ink) }
+  .title b{ color:var(--amber-soft) }
+  .inuse{ margin-left:auto; display:flex; align-items:center; gap:7px;
+    font-size:10.5px; letter-spacing:.08em; color:var(--ink-dim) }
+  .lamp{ width:9px; height:9px; border-radius:50%; background:#3a4049; position:relative; transition:.3s }
+  .lamp.live{ background:var(--live); box-shadow:0 0 10px var(--live-glow) }
+  .lamp.live::after{ content:""; position:absolute; inset:-5px; border-radius:50%;
+    border:1.5px solid var(--live); opacity:.5; animation:pulse 2s ease-out infinite }
+  @keyframes pulse{ 0%{transform:scale(1);opacity:.5} 100%{transform:scale(1.6);opacity:0} }
+  .url{ font-family:var(--mono); font-size:12px; color:var(--ink); white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis }
+  .foot{ display:flex; align-items:center; gap:9px; margin-top:1px; }
+  .rigs{ font-size:12px; color:var(--ink-dim) }
+  .rigs b{ color:var(--ink); font-weight:600; font-family:var(--mono) }
+  .act{ margin-left:auto; display:flex; align-items:center; gap:7px;
+    font-size:11px; color:var(--ink-faint); min-width:0 }
+  .act .dot{ width:8px; height:8px; border-radius:50%; background:#2a2f36; flex:none; transition:.08s }
+  .act.fire .dot{ background:var(--amber); box-shadow:0 0 10px var(--amber-glow) }
+  .act .label{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:118px }
+  @media (prefers-reduced-motion:reduce){ .lamp.live::after{ animation:none } }
+</style>
+</head>
+<body title="Open the TSS console">
+  <div class="hud">
+    <div class="top">
+      <div class="glyph"><i></i><i></i><i></i></div>
+      <div class="title"><b>TSS</b> · in use</div>
+      <div class="inuse"><span class="lamp" id="lamp"></span><span id="state">linking…</span></div>
+    </div>
+    <div class="url" id="url">—</div>
+    <div class="foot">
+      <div class="rigs"><b id="count">0</b> rigs linked</div>
+      <div class="act" id="act"><span class="dot"></span><span class="label" id="label">click to open console</span></div>
+    </div>
+  </div>
+
+<script>
+  const host = new URLSearchParams(location.search).get('host') || '';
+  const lamp = document.getElementById('lamp');
+  const state = document.getElementById('state');
+  const urlEl = document.getElementById('url');
+  const countEl = document.getElementById('count');
+  const act = document.getElementById('act');
+  const label = document.getElementById('label');
+  urlEl.textContent = host.replace(/^https?:\/\//, '') || '—';
+
+  // click anywhere → bring the main console forward
+  document.body.addEventListener('click', () => window.tss && window.tss.focusMain());
+
+  // live status (rig count + online lamp)
+  async function poll(){
+    try {
+      const r = await fetch(host + '/status', { cache:'no-store' });
+      const s = await r.json();
+      countEl.textContent = s.count;
+      lamp.classList.add('live'); state.textContent = 'live';
+    } catch (_) {
+      lamp.classList.remove('live'); state.textContent = 'offline';
+    }
+  }
+  poll(); setInterval(poll, 1500);
+
+  // live activity ticker via the observer stream
+  const KEYLABEL = { ArrowUp:'scroll up', ArrowDown:'scroll down', PageUp:'page up',
+    PageDown:'page down', Home:'jump top', End:'jump bottom', Space:'play / pause',
+    ArrowLeft:'left', ArrowRight:'right' };
+  let clearTimer = null;
+  function activity(text){
+    label.textContent = text;
+    act.classList.add('fire');
+    clearTimeout(clearTimer);
+    clearTimer = setTimeout(() => act.classList.remove('fire'), 160);
+  }
+  function connect(){
+    try {
+      const es = new EventSource(host + '/events?observer=1');
+      es.onmessage = (ev) => {
+        try {
+          const m = JSON.parse(ev.data);
+          if (m.type === 'key') activity(KEYLABEL[m.code] || m.code);
+          else if (m.type === 'mouse') activity(m.action === 'scroll' ? 'scroll' : 'pointer ' + (m.action || ''));
+          else if (m.type === 'speed') activity('speed ' + m.value);
+        } catch (_) {}
+      };
+      es.onerror = () => { es.close(); setTimeout(connect, 2000); };
+    } catch (_) { setTimeout(connect, 2000); }
+  }
+  connect();
+</script>
+</body>
+</html>

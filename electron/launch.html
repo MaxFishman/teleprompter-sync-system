@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Teleprompter Sync System</title>
+<style>
+  :root{
+    --panel-0:#101317; --panel-1:#171b21; --panel-2:#1f242b; --well:#0c0e12;
+    --hair:#2a3038; --ink:#edeff2; --ink-dim:#7e8893; --ink-faint:#525b65;
+    --amber:#f4a836; --amber-soft:#f6bd63; --amber-glow:rgba(244,168,54,.55);
+    --link:#53e08a;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--sans); color:var(--ink);
+    background:radial-gradient(120% 80% at 50% -10%,#1a1f26 0%,var(--panel-0) 55%);
+    display:flex; align-items:center; justify-content:center; padding:30px;
+    -webkit-font-smoothing:antialiased; user-select:none;
+  }
+  .card{
+    width:100%; max-width:460px;
+    background:linear-gradient(180deg,var(--panel-2),var(--panel-1));
+    border:1px solid var(--hair); border-radius:20px; padding:30px 30px 28px;
+    box-shadow:0 1px 0 rgba(255,255,255,.06) inset, 0 40px 80px -40px #000;
+  }
+  .brand{ display:flex; align-items:center; gap:14px; margin-bottom:6px; }
+  .glyph{ width:46px; height:46px; border-radius:12px; position:relative; flex:none;
+    background:radial-gradient(circle at 35% 30%,#2b323b,#10141a); border:1px solid var(--hair); }
+  .glyph i{ position:absolute; left:10px; right:10px; height:3px; border-radius:2px;
+    background:var(--amber); box-shadow:0 0 8px var(--amber-glow); }
+  .glyph i:nth-child(1){ top:14px; opacity:.95 } .glyph i:nth-child(2){ top:21px; opacity:.6 }
+  .glyph i:nth-child(3){ top:28px; opacity:.3 }
+  h1{ font-size:17px; font-weight:650; letter-spacing:.08em; line-height:1.2 }
+  h1 b{ color:var(--amber-soft); font-weight:650 }
+  .sub{ font-size:12px; color:var(--ink-faint); margin-top:3px; letter-spacing:.03em }
+
+  .seg{ display:flex; gap:7px; padding:4px; margin:22px 0 20px;
+    background:var(--well); border:1px solid #000; border-radius:12px; }
+  .seg button{ flex:1; cursor:pointer; background:transparent; color:var(--ink-dim); border:0;
+    border-radius:9px; padding:11px 0; font-family:var(--sans); font-size:14px; transition:.15s }
+  .seg button.on{ background:linear-gradient(180deg,#2c333c,#20262e); color:var(--ink);
+    box-shadow:0 1px 0 rgba(255,255,255,.06) inset }
+
+  label{ display:block; font-size:12px; color:var(--ink-dim); margin:0 0 7px 2px; letter-spacing:.02em }
+  .field{ margin-bottom:16px }
+  input{ width:100%; font-family:var(--sans); font-size:15px; color:var(--ink);
+    background:var(--well); border:1px solid var(--hair); border-radius:11px;
+    padding:13px 14px; outline:none; transition:border-color .15s, box-shadow .15s }
+  input:focus{ border-color:var(--amber); box-shadow:0 0 0 3px rgba(244,168,54,.14) }
+  input::placeholder{ color:var(--ink-faint) }
+  .two{ display:flex; gap:12px } .two .field{ flex:1 }
+
+  .go{ width:100%; cursor:pointer; margin-top:4px; min-height:54px;
+    font-family:var(--sans); font-size:16px; font-weight:600; letter-spacing:.02em; color:#1a1205;
+    background:linear-gradient(180deg,var(--amber-soft),var(--amber)); border:0; border-radius:13px;
+    box-shadow:0 0 22px -4px var(--amber-glow); transition:transform .06s, filter .15s }
+  .go:active{ transform:translateY(1px) } .go:disabled{ filter:saturate(.4) brightness(.8); cursor:default }
+
+  .note{ font-size:12px; color:var(--ink-faint); line-height:1.55; margin-top:16px }
+  .note b{ color:var(--ink-dim); font-weight:600 }
+  .err{ color:#ff8a86; font-size:12.5px; margin-top:12px; min-height:16px }
+  [hidden]{ display:none !important }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">
+      <div class="glyph"><i></i><i></i><i></i></div>
+      <div>
+        <h1>TELEPROMPTER&nbsp;SYNC&nbsp;SYSTEM</h1>
+        <div class="sub"><b style="color:var(--amber-soft)">TSS</b> · drive two redundant rigs as one</div>
+      </div>
+    </div>
+
+    <div class="seg">
+      <button id="segHost" class="on">Host a session</button>
+      <button id="segJoin">Join a session</button>
+    </div>
+
+    <!-- HOST -->
+    <form id="hostForm">
+      <div class="field">
+        <label>Teleprompter app on this Mac</label>
+        <input id="hTarget" placeholder="e.g. Teleprompter" autocomplete="off" />
+      </div>
+      <div class="two">
+        <div class="field">
+          <label>Scroll speed (1–10)</label>
+          <input id="hSpeed" type="number" min="1" max="10" value="1" />
+        </div>
+      </div>
+      <button class="go" id="hostGo">Start hosting</button>
+      <div class="note">Opens the control console and a join QR. This Mac also becomes a synced rig. Keep the teleprompter app running.</div>
+    </form>
+
+    <!-- JOIN -->
+    <form id="joinForm" hidden>
+      <div class="field">
+        <label>Host address (from the host's JOIN panel)</label>
+        <input id="jHost" placeholder="192.168.1.42  or  http://192.168.1.42:3000" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label>Teleprompter app on this Mac</label>
+        <input id="jTarget" placeholder="e.g. Teleprompter" autocomplete="off" />
+      </div>
+      <div class="two">
+        <div class="field">
+          <label>Scroll speed (1–10)</label>
+          <input id="jSpeed" type="number" min="1" max="10" value="1" />
+        </div>
+        <div class="field">
+          <label>Rig name</label>
+          <input id="jName" placeholder="backup" autocomplete="off" />
+        </div>
+      </div>
+      <button class="go" id="joinGo">Join session</button>
+      <div class="note">Bring the teleprompter app to the front and leave it there — the host will drive it.</div>
+    </form>
+
+    <div class="err" id="err"></div>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const segHost = $('segHost'), segJoin = $('segJoin');
+  const hostForm = $('hostForm'), joinForm = $('joinForm'), err = $('err');
+
+  function show(host){
+    segHost.classList.toggle('on', host); segJoin.classList.toggle('on', !host);
+    hostForm.hidden = !host; joinForm.hidden = host; err.textContent = '';
+  }
+  segHost.onclick = () => show(true);
+  segJoin.onclick = () => show(false);
+
+  function normHost(v){
+    v = (v || '').trim();
+    if (!v) return '';
+    if (!/^https?:\/\//i.test(v)) v = 'http://' + v;
+    try {
+      const u = new URL(v);
+      if (!u.port) u.port = '3000';
+      return u.origin;
+    } catch (_) { return ''; }
+  }
+
+  hostForm.addEventListener('submit', async (e) => {
+    e.preventDefault(); err.textContent = '';
+    const btn = $('hostGo'); btn.disabled = true; btn.textContent = 'Starting…';
+    try {
+      await window.tss.host({ target: $('hTarget').value.trim(), speed: Number($('hSpeed').value) || 1 });
+    } catch (ex) {
+      err.textContent = 'Could not start hosting: ' + (ex && ex.message ? ex.message : ex);
+      btn.disabled = false; btn.textContent = 'Start hosting';
+    }
+  });
+
+  joinForm.addEventListener('submit', async (e) => {
+    e.preventDefault(); err.textContent = '';
+    const host = normHost($('jHost').value);
+    if (!host) { err.textContent = 'Enter the host address shown on the host.'; return; }
+    const btn = $('joinGo'); btn.disabled = true; btn.textContent = 'Joining…';
+    try {
+      await window.tss.join({
+        host, target: $('jTarget').value.trim(),
+        speed: Number($('jSpeed').value) || 1, name: $('jName').value.trim() || 'backup',
+      });
+    } catch (ex) {
+      err.textContent = 'Could not join: ' + (ex && ex.message ? ex.message : ex);
+      btn.disabled = false; btn.textContent = 'Join session';
+    }
+  });
+</script>
+</body>
+</html>

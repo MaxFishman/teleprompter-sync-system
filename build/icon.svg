@@ -1,0 +1,33 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#20262e"/>
+      <stop offset="1" stop-color="#0d1014"/>
+    </linearGradient>
+    <linearGradient id="amber" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f6bd63"/>
+      <stop offset="1" stop-color="#f4a836"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="14" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- rounded app tile with a thin bevel -->
+  <rect x="104" y="104" width="816" height="816" rx="188" fill="url(#bg)"/>
+  <rect x="104.5" y="104.5" width="815" height="815" rx="187.5" fill="none" stroke="#ffffff" stroke-opacity="0.07" stroke-width="3"/>
+
+  <!-- teleprompter lines; the center "reading line" is full-width and glows -->
+  <g>
+    <rect x="300" y="300" width="300" height="34" rx="17" fill="url(#amber)" opacity="0.30"/>
+    <rect x="300" y="382" width="424" height="34" rx="17" fill="url(#amber)" opacity="0.52"/>
+    <rect x="300" y="478" width="424" height="68" rx="34" fill="url(#amber)" filter="url(#glow)"/>
+    <rect x="300" y="608" width="360" height="34" rx="17" fill="url(#amber)" opacity="0.52"/>
+    <rect x="300" y="690" width="258" height="34" rx="17" fill="url(#amber)" opacity="0.30"/>
+  </g>
+
+  <!-- two sync dots marking the mirrored rigs, on the reading line -->
+  <circle cx="724" cy="512" r="22" fill="#f6bd63"/>
+  <circle cx="300" cy="512" r="22" fill="#f6bd63"/>
+</svg>
