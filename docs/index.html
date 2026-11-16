@@ -224,6 +224,17 @@
     .js section.io > .wrap > * { opacity:1; transform:none; transition:none; }
   }
 
+  /* hero entrance on load — transition-based so it doesn't fight the .rigs parallax */
+  .js .hero .eyebrow, .js .hero h1, .js .hero .lede, .js .hero .cta {
+    opacity:0; transform:translateY(22px); transition:opacity .7s ease, transform .75s cubic-bezier(.2,.8,.25,1); }
+  .js .hero .rigs { opacity:0; transition:opacity .9s ease; }       /* opacity only — parallax owns transform */
+  .hero.in .eyebrow, .hero.in h1, .hero.in .lede, .hero.in .cta, .hero.in .rigs { opacity:1; transform:none; }
+  .hero.in .eyebrow{ transition-delay:.04s } .hero.in h1{ transition-delay:.12s }
+  .hero.in .lede{ transition-delay:.24s } .hero.in .cta{ transition-delay:.34s } .hero.in .rigs{ transition-delay:.30s }
+  @media (prefers-reduced-motion: reduce){
+    .js .hero .eyebrow, .js .hero h1, .js .hero .lede, .js .hero .cta, .js .hero .rigs{ opacity:1; transform:none; transition:none; }
+  }
+
   /* section-dot navigator */
   .dots{ position:fixed; right:18px; top:50%; transform:translateY(-50%); z-index:55;
     display:flex; flex-direction:column; gap:13px; }
@@ -504,6 +515,11 @@
 </div></footer>
 
 <script>
+  // animate the hero in on load
+  requestAnimationFrame(function(){
+    var h = document.querySelector('.hero'); if (h) h.classList.add('in');
+  });
+
   (function(){
     var nav = document.getElementById('nav');
     var ham = document.getElementById('hamburger');
