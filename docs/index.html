@@ -4,15 +4,139 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Teleprompter Sync System — two rigs, one operator, zero drift</title>
-<meta name="description" content="Run two teleprompter rigs in perfect lockstep. One keyboard and mouse drives both over your local network. Free, open source, macOS." />
+<meta name="description" content="Run two teleprompter rigs in perfect lockstep. One keyboard and mouse drives both over your local network — free, open source, macOS. The redundant teleprompter backup stays exactly in sync." />
+<meta name="author" content="Max Fishman" />
+<meta name="keywords" content="teleprompter sync, backup teleprompter, redundant teleprompter, teleprompter control, live production, broadcast teleprompter, macOS teleprompter app" />
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+<meta name="theme-color" content="#0c0f13" />
+<meta name="application-name" content="Teleprompter Sync System" />
+<link rel="canonical" href="https://MaxFishman.github.io/teleprompter-sync-system/" />
+<link rel="sitemap" type="application/xml" href="sitemap.xml" />
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+<!-- Open Graph -->
 <meta property="og:title" content="Teleprompter Sync System (TSS)" />
-<meta property="og:description" content="Two teleprompters. One operator. Zero drift. A free macOS tool to keep a redundant teleprompter rig perfectly in sync." />
+<meta property="og:description" content="Two teleprompters. One operator. Zero drift. A free, open-source macOS tool that keeps a redundant teleprompter rig perfectly in sync over your local network." />
 <meta property="og:type" content="website" />
+<meta property="og:url" content="https://MaxFishman.github.io/teleprompter-sync-system/" />
+<meta property="og:site_name" content="Teleprompter Sync System" />
+<meta property="og:locale" content="en_US" />
 <meta property="og:image" content="https://MaxFishman.github.io/teleprompter-sync-system/og.png" />
+<meta property="og:image:width" content="2400" />
+<meta property="og:image:height" content="1260" />
+<meta property="og:image:alt" content="Teleprompter Sync System — two teleprompter rigs scrolling in lockstep from one controller." />
+<!-- Twitter / X -->
 <meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Teleprompter Sync System (TSS)" />
+<meta name="twitter:description" content="Two teleprompters. One operator. Zero drift. A free, open-source macOS tool to keep a redundant teleprompter rig perfectly in sync." />
+<meta name="twitter:image" content="https://MaxFishman.github.io/teleprompter-sync-system/og.png" />
+<meta name="twitter:image:alt" content="Teleprompter Sync System — two rigs scrolling in lockstep from one controller." />
 <script>document.documentElement.classList.add('js')</script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23171c22'/%3E%3Crect x='8' y='10' width='16' height='2.6' rx='1.3' fill='%23f4a836'/%3E%3Crect x='8' y='15' width='16' height='2.6' rx='1.3' fill='%23f4a836' opacity='.6'/%3E%3Crect x='8' y='20' width='16' height='2.6' rx='1.3' fill='%23f4a836' opacity='.32'/%3E%3C/svg%3E" />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://MaxFishman.github.io/teleprompter-sync-system/#website",
+      "url": "https://MaxFishman.github.io/teleprompter-sync-system/",
+      "name": "Teleprompter Sync System",
+      "alternateName": "TSS",
+      "description": "Run two teleprompter rigs in perfect lockstep — one keyboard and mouse drives both over your local network.",
+      "inLanguage": "en",
+      "publisher": { "@id": "https://MaxFishman.github.io/teleprompter-sync-system/#org" }
+    },
+    {
+      "@type": "Person",
+      "@id": "https://MaxFishman.github.io/teleprompter-sync-system/#maxfishman",
+      "name": "Max Fishman",
+      "url": "https://github.com/MaxFishman",
+      "sameAs": ["https://github.com/MaxFishman"]
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://MaxFishman.github.io/teleprompter-sync-system/#org",
+      "name": "Teleprompter Sync System",
+      "alternateName": "TSS",
+      "url": "https://MaxFishman.github.io/teleprompter-sync-system/",
+      "logo": "https://MaxFishman.github.io/teleprompter-sync-system/og.png",
+      "founder": { "@id": "https://MaxFishman.github.io/teleprompter-sync-system/#maxfishman" },
+      "sameAs": ["https://github.com/MaxFishman/teleprompter-sync-system"]
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://MaxFishman.github.io/teleprompter-sync-system/#app",
+      "name": "Teleprompter Sync System",
+      "alternateName": "TSS",
+      "applicationCategory": "MultimediaApplication",
+      "applicationSubCategory": "Teleprompter control for live production",
+      "operatingSystem": "macOS 11.0 or later (Apple silicon)",
+      "url": "https://MaxFishman.github.io/teleprompter-sync-system/",
+      "downloadUrl": "https://github.com/MaxFishman/teleprompter-sync-system/releases/latest",
+      "softwareVersion": "1.10.0",
+      "softwareHelp": "https://github.com/MaxFishman/teleprompter-sync-system#readme",
+      "license": "https://github.com/MaxFishman/teleprompter-sync-system/blob/main/LICENSE",
+      "image": "https://MaxFishman.github.io/teleprompter-sync-system/og.png",
+      "screenshot": "https://MaxFishman.github.io/teleprompter-sync-system/console.png",
+      "description": "A free, open-source macOS app that keeps a redundant backup teleprompter rig perfectly in sync. One operator drives scroll, paging, playback and mouse across every connected laptop — plus phones and tablets as remotes — over the local network, with live in-sync/drift confidence and no internet required.",
+      "isAccessibleForFree": true,
+      "author": { "@id": "https://MaxFishman.github.io/teleprompter-sync-system/#maxfishman" },
+      "publisher": { "@id": "https://MaxFishman.github.io/teleprompter-sync-system/#org" },
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "featureList": [
+        "Drive every teleprompter rig from one keyboard and mouse",
+        "Live IN SYNC / DRIFT status with per-rig latency",
+        "Join from a phone or tablet by scanning a QR code",
+        "Auto-scroll WPM crawl, roll countdown and instant all-stop",
+        "Session PIN plus arm/disarm safety gate",
+        "Runs entirely on the local network — no cloud, no accounts"
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://MaxFishman.github.io/teleprompter-sync-system/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Does it need an internet connection?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. TSS runs entirely on your local Wi-Fi / LAN — commands never leave the room, and there are no accounts or cloud. The app can check GitHub for updates, but that's optional." }
+        },
+        {
+          "@type": "Question",
+          "name": "Which teleprompter apps does it work with?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Any of them. TSS is a control surface, not a teleprompter — it injects the same scroll, page, and click into whatever app you name, so it drives the teleprompter software you already use. If your app uses non-standard keys, remap them with custom key mapping." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is there a Windows version?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Not yet — the current build is macOS 11 or later. The hub, console, and sync protocol are OS-agnostic, so Windows support is on the roadmap." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is it free?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes — free and open source (MIT). Download the macOS app, or run it from source." }
+        },
+        {
+          "@type": "Question",
+          "name": "How many rigs can I sync?",
+          "acceptedAnswer": { "@type": "Answer", "text": "As many as you like on the same network — the primary plus one or more backups. Every rig acknowledges each command, so you always see them stay in sync, with per-rig latency and drift alerts." }
+        },
+        {
+          "@type": "Question",
+          "name": "Do I need to install anything on the backup?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Just the TSS app (or the scripts) — open it, choose Join, and it mirrors every scroll and click. A phone or tablet can join by scanning the QR with no install at all." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is my script or data sent anywhere?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. TSS only relays key and mouse commands over your LAN. It never sees, stores, or transmits your script." }
+        }
+      ]
+    }
+  ]
+}
+</script>
 <style>
   :root{
     --bg:#0c0f13; --bg-2:#101317; --panel:#151a20; --panel-2:#1b2027; --well:#0a0c10;

@@ -12,3 +12,6 @@ scratchpad/
 .DS_Store
 *.log
 .vercel/
+
+# Local, machine-specific Claude Code settings
+.claude/settings.local.json

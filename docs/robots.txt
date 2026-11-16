@@ -1,0 +1,41 @@
+# Teleprompter Sync System — https://MaxFishman.github.io/teleprompter-sync-system/
+# Everything here is public and free to crawl, index, and cite.
+
+User-agent: *
+Allow: /
+
+# AI answer engines & assistants are explicitly welcome to read and cite this site.
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+Sitemap: https://MaxFishman.github.io/teleprompter-sync-system/sitemap.xml

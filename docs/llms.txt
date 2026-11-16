@@ -1,0 +1,42 @@
+# Teleprompter Sync System (TSS)
+
+> Teleprompter Sync System is a free, open-source macOS app that keeps a redundant backup teleprompter rig perfectly in sync with the primary. One operator drives scroll, paging, playback, and mouse across every connected laptop — plus phones and tablets as wireless remotes — over the local network, with live in-sync/drift confidence and no internet, cloud, or accounts. Built by Max Fishman. MIT licensed.
+
+Key facts:
+
+- Platform: macOS 11 or later, Apple silicon. Windows is on the roadmap.
+- Price: free and open source (MIT license).
+- Network: runs entirely on local Wi-Fi / LAN; scripts and data never leave the room (the app can optionally check GitHub for updates).
+- Works with: any teleprompter app. TSS is a control surface, not a teleprompter — it injects the same scroll / page / click into whatever app you name, so it drives the teleprompter software you already use.
+- Rigs: sync a primary plus any number of backups on the same network; each rig acknowledges every command, giving per-rig latency and drift alerts.
+- Use case: live broadcast / production redundancy — if the primary teleprompter laptop fails mid-show, the backup is already on the exact same line.
+
+## Features
+
+- One keyboard and mouse drive every rig at once — arrows, Page Up/Down, Home/End, Space, and mouse mirroring (Mirror or Trackpad modes).
+- Live sync confidence: IN SYNC / SYNCING / DRIFT status, per-rig latency with sparklines, connect/drop toasts, and an optional drift/disconnect alarm.
+- Auto-scroll: a hands-off words-per-minute crawl pushed to every rig.
+- Roll: a 3·2·1 countdown that starts every rig together. All-stop: an instant panic button that halts the crawl and pauses every rig.
+- Identify a rig: beep + banner a specific physical laptop so you know which machine is which.
+- Join from a phone or tablet by scanning a QR code — a full wireless controller in seconds; plus a dedicated phone Remote mode.
+- Safety: a session PIN and an arm/disarm gate so stray keys or untrusted devices never reach air.
+- Convenience: menu-bar tray, global hotkeys, an always-on-top mini controller, saved presets, custom key mapping, a guided first-run tour, and in-app updates.
+
+## Links
+
+- Website: https://MaxFishman.github.io/teleprompter-sync-system/
+- Download (macOS DMG): https://github.com/MaxFishman/teleprompter-sync-system/releases/latest
+- Source code: https://github.com/MaxFishman/teleprompter-sync-system
+- README / documentation: https://github.com/MaxFishman/teleprompter-sync-system#readme
+- Changelog: https://github.com/MaxFishman/teleprompter-sync-system/blob/main/CHANGELOG.md
+- License (MIT): https://github.com/MaxFishman/teleprompter-sync-system/blob/main/LICENSE
+
+## FAQ
+
+- Does it need an internet connection? No — TSS runs entirely on your local Wi-Fi / LAN; commands never leave the room and there are no accounts or cloud. The app can optionally check GitHub for updates.
+- Which teleprompter apps does it work with? Any of them. TSS injects scroll / page / click into whatever app you name, and non-standard keys can be remapped.
+- Is there a Windows version? Not yet — the current build is macOS 11 or later. The hub, console, and sync protocol are OS-agnostic, so Windows is on the roadmap.
+- Is it free? Yes — free and open source under the MIT license. Download the macOS app or run it from source.
+- How many rigs can I sync? As many as you like on the same network — a primary plus one or more backups, each acknowledging every command.
+- Do I need to install anything on the backup? Just the TSS app (or the scripts). A phone or tablet can join by scanning the QR with no install.
+- Is my script or data sent anywhere? No — TSS only relays key and mouse commands over your LAN. It never sees, stores, or transmits your script.
