@@ -28,11 +28,11 @@ Every serious live broadcast runs a **backup teleprompter** in case the primary 
 <img src="assets/console.png" alt="The TSS control console" width="88%" />
 </div>
 
-> **◆ Latest improvements**
+> **◆ Latest improvements — reliability**
 >
-> - **🪟 The whole console fits one window** — every control is visible at a glance, so you never scroll to find a button mid-show.
-> - **🖱️ Wheel scroll, on your terms** — a **Wheel drives rigs** toggle (off by default) means scrolling the window never nudges the prompters until you opt in.
-> - **🎯 Hosting that can't run away** — TSS asks for your teleprompter app up front and sends input **only** there, so a host can never feed keystrokes back into its own console.
+> - **🛟 Self-healing link** — rigs detect a dropped or half-open connection and reconnect on their own; a rig that silently falls behind is flagged **OUT OF SYNC**, and one **Re-home** button snaps every rig back to a known common line.
+> - **🛑 Guaranteed All-stop** — critical commands (All-stop, Roll, Re-home) are re-delivered until every rig confirms — even a rig that was mid-reconnect still gets them, exactly once — and a crashed rig agent respawns itself.
+> - **🗒️ Session log export** — download a timestamped timeline of the whole show (connects, drops, drift, all-stops, re-homes) for post-show review.
 
 ## What you get
 
@@ -55,6 +55,9 @@ Every serious live broadcast runs a **backup teleprompter** in case the primary 
 | 🔎 **Zero-config join** | Backup rigs discover the host over the network — no IP to type. |
 | 🪟 **One-window console** | Every control is visible at once — no scrolling to reach a button under pressure. |
 | 🎯 **Targeted, safe input** | Name the teleprompter app up front; keystrokes only ever reach that app, never the console. |
+| 🛟 **Self-healing link** | Rigs reconnect automatically after a drop or Wi-Fi blip; a rig that falls behind is flagged **OUT OF SYNC** with one-tap **Re-home** recovery, and a crashed rig agent respawns itself. |
+| 🛑 **Guaranteed critical commands** | All-stop, Roll and Re-home are re-delivered until every rig acks — even one that was mid-reconnect — and never double-fire. |
+| 🗒️ **Session log export** | Download a timestamped timeline of the show — connects, drops, drift, all-stops, re-homes — for post-show review. |
 
 ## A closer look
 
@@ -112,6 +115,14 @@ Everything a live show needs to trust the backup and run it from anywhere.
 ### Built to not surprise you
 
 The console is laid out to fit **one window** — transport, roll/all-stop, speed, your rigs and sync state are all visible at once, so there's no scrolling to hunt for a control the moment it matters. Mouse-wheel control is **opt-in** (a *Wheel drives rigs* toggle, off by default), so scrolling the window never moves the prompters by accident. And when you host, TSS drives **only** the teleprompter app you name — keystrokes can never loop back into the console. Quiet, predictable, show-safe.
+
+### Self-healing link & guaranteed stops
+
+Live networks blip — TSS is built to survive it. A rig that loses its connection (a Wi-Fi drop, a sleep, a half-open socket) **reconnects on its own** within seconds instead of hanging silently behind; the hub actively drops a rig that goes quiet so your rig count is always honest. A rig that was gone long enough to miss commands is flagged **OUT OF SYNC** in the console, and a single **Re-home** snaps every rig back to a known common line. The show-critical commands — **All-stop, Roll, Re-home** — are re-delivered until every rig confirms, so a rig that was mid-reconnect the instant you hit All-stop still stops the moment it returns (and never double-fires). If a rig's agent ever crashes, the host **respawns it automatically**.
+
+### Session log — review the whole show
+
+One tap (**⤓ Log**) downloads a timestamped timeline of everything that happened — session start, every rig connect / reconnect / drop (with the reason), arm/disarm, all-stops, re-homes, control handoffs — as a plain-text file for post-show review or a fault report.
 
 ### Know you're in sync
 <img src="assets/features/sync.png" alt="Live in-sync status, latency, armed state" width="620" />
