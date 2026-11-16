@@ -3,6 +3,16 @@
 All notable changes to **Teleprompter Sync System (TSS)** are recorded here.
 Format based on [Keep a Changelog](https://keepachangelog.com/). Dates are ISO (YYYY-MM-DD).
 
+## [1.11.4] - 2026-11-16
+
+### Added
+- **Session log / export** — the hub records a forensic timeline of the show: session start, each rig
+  connect / reconnect (out-of-sync) / drop (with the reason — closed, reaped, write-error), arm/disarm,
+  critical commands (All-stop, Roll, Re-home), speed changes, control handoff, rig enable/disable, and
+  PIN denials — plus running command counts, served at `GET /log`. A **⤓ Log** button in the console
+  downloads it as a readable, timestamped text timeline (`tss-session-<date>.txt`) for post-show review
+  or a fault report. Works on any device, including the Electron window. (`server.js`, `public/index.html`)
+
 ## [1.11.3] - 2026-11-16
 
 ### Added
