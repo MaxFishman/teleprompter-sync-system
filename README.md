@@ -7,7 +7,7 @@
 No cloud. No subscription. No drift.
 
 [![macOS](https://img.shields.io/badge/macOS-11%2B-0b0e12?logo=apple&logoColor=f4a836)](https://github.com/MaxFishman/teleprompter-sync-system/releases/latest)
-[![version](https://img.shields.io/badge/version-1.0.0-f4a836)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-1.1.0-f4a836)](CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-MIT-53e08a)](LICENSE)
 [![built for](https://img.shields.io/badge/built%20for-live%20production-7e8893)](#why-tss)
 
@@ -79,6 +79,6 @@ Key pieces: `server.js` (hub), `agent.js` (per-rig injector), `keypost.swift` (f
 
 ## License
 
-[MIT](LICENSE) © Fishman
+[MIT](LICENSE) © Max Fishman
 
-<div align="center"><sub>Teleprompter Sync System · TSS — two rigs, one operator, zero drift.</sub></div>
+<div align="center"><sub>Built by <b>Max Fishman</b> · Teleprompter Sync System · TSS — two rigs, one operator, zero drift.</sub></div>

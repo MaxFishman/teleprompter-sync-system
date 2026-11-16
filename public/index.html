@@ -3,6 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#101317" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="TSS" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <title>Teleprompter Sync System</title>
 <style>
   :root {
@@ -36,9 +43,23 @@
     background:
       radial-gradient(120% 80% at 50% -10%, #1a1f26 0%, var(--panel-0) 55%) fixed;
     min-height:100%;
+    min-height:100dvh;
     -webkit-font-smoothing:antialiased;
-    padding:22px clamp(14px,4vw,40px) 40px;
+    /* safe-area aware so controls clear the notch / home indicator */
+    padding:
+      max(22px, env(safe-area-inset-top))
+      max(clamp(14px,4vw,40px), env(safe-area-inset-right))
+      max(40px, env(safe-area-inset-bottom))
+      max(clamp(14px,4vw,40px), env(safe-area-inset-left));
     overflow-x:hidden;
+    overscroll-behavior:none;            /* no rubber-band / scroll chaining */
+    touch-action:manipulation;           /* kill double-tap zoom + 300ms delay */
+    -webkit-tap-highlight-color:transparent;
+    -webkit-text-size-adjust:100%;
+  }
+  /* no long-press callout / text selection on controls */
+  .btn,.sm-btn,.spd .step,.pbtn,.modes button,.pad-surface,.copy,.play,.play .cap {
+    -webkit-touch-callout:none; -webkit-user-select:none; user-select:none;
   }
 
   /* ---- status rail -------------------------------------------------------- */
@@ -107,6 +128,8 @@
     box-shadow:0 1px 0 var(--edge-hi) inset, 0 28px 60px -30px #000;
     display:grid; grid-template-columns:clamp(54px,9vw,88px) 1fr; gap:clamp(16px,2.5vw,26px);
   }
+  /* let grid/flex tracks shrink below content instead of overflowing the viewport */
+  .stage > *, .console > *, .keys > * { min-width:0; }
 
   /* jog rail — the one place motion lives */
   .jog { position:relative; background:var(--well); border-radius:11px;
@@ -313,9 +336,19 @@
     border-bottom-color:#0c0f13; border-radius:8px; padding:7px 11px; }
   .legend kbd b { color:var(--ink); font-weight:600; }
 
+  .credit { max-width:1180px; margin:20px auto 0; text-align:center;
+    font-size:12px; color:var(--ink-faint); letter-spacing:.02em; }
+  .credit b { color:var(--ink-dim); font-weight:600; }
+
   /* phones: make the lower transport keys a 2×2 grid so each is bigger */
   @media (max-width:520px){
     .rowkeys { grid-template-columns:repeat(2,1fr); }
+  }
+
+  /* narrow phones: drop the decorative jog rail, give transport the full width */
+  @media (max-width:560px){
+    .console { grid-template-columns:1fr; padding:16px 16px 20px; }
+    .jog { display:none; }
   }
 
   /* touch devices: bigger finger targets; the keyboard legend is moot */
@@ -329,6 +362,7 @@
     .spd .sv      { font-size:24px; min-width:46px; }
     .copy         { min-height:52px; font-size:16px; }
     .legend       { display:none; }
+    .warn         { display:none !important; } /* keyboard-focus warning is moot on touch */
   }
 
   /* one orchestrated power-on reveal */
@@ -483,6 +517,8 @@
     <kbd><b>Space</b> play / pause</kbd>
     <kbd><b>wheel</b> scroll</kbd>
   </div>
+
+  <div class="credit reveal d3">Built by <b>Max Fishman</b></div>
 
 <script>
 (() => {
@@ -732,6 +768,15 @@
   }
   clickL.addEventListener('click', () => clickBtn('left', clickL));
   clickR.addEventListener('click', () => clickBtn('right', clickR));
+
+  // --- keep the screen awake while this device is a controller ---
+  let wakeLock = null;
+  async function requestWake(){
+    try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (_) {}
+  }
+  requestWake();
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') requestWake(); });
+  addEventListener('pointerdown', requestWake, { once:true }); // iOS needs a gesture
 
   // --- power on ---
   requestAnimationFrame(() => document.body.classList.add('on'));
