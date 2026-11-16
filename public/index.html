@@ -299,12 +299,31 @@
   }
   .card .body { padding:13px 18px 18px; }
 
+  /* RIGS card header with the Re-home recovery control */
+  .card-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:15px 18px 0; }
+  .card-head h2 { padding:0; }
+  .rehome-btn { -webkit-appearance:none; appearance:none; cursor:pointer; flex:none;
+    font-family:var(--sans); font-size:12px; letter-spacing:.04em; color:var(--ink-dim);
+    background:#171c22; border:1px solid var(--hair); border-radius:9px; padding:7px 12px;
+    transition:color .12s, box-shadow .12s, border-color .12s, background .12s; }
+  .rehome-btn:hover { color:var(--amber-soft); box-shadow:0 0 0 1px var(--amber) inset; }
+  .rehome-btn:active { transform:translateY(1px); }
+  .rehome-btn.needs { color:#1a1205; background:linear-gradient(180deg,var(--amber-soft),var(--amber));
+    border-color:transparent; animation:rehomePulse 1.3s ease-in-out infinite; }
+  @keyframes rehomePulse { 0%,100%{ box-shadow:0 0 0 0 var(--amber-glow); } 50%{ box-shadow:0 0 0 5px rgba(244,168,54,.16); } }
+
   .rig { display:flex; align-items:center; gap:13px; padding:14px 0;
     border-top:1px solid #ffffff08; }
+  /* a rig that reconnected mid-show and may have missed commands — the side
+     column is too narrow for a text badge, so the signal is the red row tint +
+     a red pulsing lamp (plus the header RE-HOME chip and the pulsing Re-home btn) */
+  .rig.desynced { background:linear-gradient(90deg, rgba(255,79,73,.12), transparent 72%); border-radius:8px; }
   .rig:first-child { border-top:none; }
   .rig .l { width:13px; height:13px; border-radius:50%; flex:none;
     background:var(--link); box-shadow:0 0 11px var(--link-glow),0 0 0 1px #0a1a10 inset; }
   .rig .l.flash { background:var(--amber); box-shadow:0 0 13px var(--amber-glow); }
+  .rig .l.desync { background:var(--live); box-shadow:0 0 13px var(--live-glow),0 0 0 1px #2a0d0c inset;
+    animation:rehomePulse 1.3s ease-in-out infinite; }
   .rig .meta { flex:1; min-width:0; }
   .rig .nm { font-size:clamp(15px,3.2vw,18px); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .rig .ip { font-family:var(--mono); font-size:clamp(11px,2.2vw,13px); color:var(--ink-faint); }
@@ -844,7 +863,10 @@
       </div>
 
       <div class="card reveal d2" id="rigsCard">
-        <h2>RIGS</h2>
+        <div class="card-head">
+          <h2>RIGS</h2>
+          <button class="rehome-btn" id="rehomeBtn" title="Send every rig to the top (Home) and clear the out-of-sync flag">⤒&nbsp;Re-home</button>
+        </div>
         <div class="body"><div id="rigs"><div class="empty">Waiting for a rig to come online. Start <code style="font-family:var(--mono)">agent.js</code> on each laptop.</div></div></div>
       </div>
 
@@ -1220,7 +1242,9 @@
 
   function updateSync(s){
     syncChip.classList.remove('ok','pending','drift');
+    const desync = s.agents.some(a => a.enabled !== false && a.desynced);
     if (s.count === 0){ syncText.textContent = 'idle'; }
+    else if (desync) { syncChip.classList.add('drift'); syncText.textContent = 'RE-HOME'; }
     else if (s.agents.some(a => a.stale)) { syncChip.classList.add('drift'); syncText.textContent = 'DRIFT'; }
     else if (s.agents.every(a => a.synced)) { syncChip.classList.add('ok'); syncText.textContent = 'IN SYNC'; }
     else { syncChip.classList.add('pending'); syncText.textContent = 'SYNCING'; }
@@ -1228,7 +1252,8 @@
     if (rsy) rsy.textContent = s.count === 0 ? 'no rigs' : (syncText.textContent + ' · ' + s.count);
   }
   function rigRow(a){
-    return '<div class="rig' + (a.enabled === false ? ' off' : '') + '" data-rig="' + a.id + '"><span class="l' + (a.stale ? ' stale' : '') + '"></span>' +
+    const ds = a.desynced && a.enabled !== false;
+    return '<div class="rig' + (a.enabled === false ? ' off' : '') + (ds ? ' desynced' : '') + '" data-rig="' + a.id + '"><span class="l' + (a.stale ? ' stale' : '') + '"></span>' +
       '<div class="meta"><div class="nm">' + esc(a.name) + '</div>' +
       '<div class="ip">' + esc(a.ip || '—') + ' · <span class="lat">' + (a.latency != null ? a.latency + ' ms' : '') + '</span></div></div>' +
       '<canvas class="spark" width="96" height="40" aria-hidden="true"></canvas>' +
@@ -1275,7 +1300,9 @@
     }
     prevIds = ids; prevNames = names; prevInit = true;
 
-    const sig = JSON.stringify(s.agents.map(a => [a.id, a.name, a.ip, a.speed]));
+    rehomeBtn.classList.toggle('needs', s.agents.some(a => a.enabled !== false && a.desynced));
+
+    const sig = JSON.stringify(s.agents.map(a => [a.id, a.name, a.ip, a.speed, a.desynced]));
     if (sig !== lastSig){
       lastSig = sig;
       rigsEl.innerHTML = s.count === 0
@@ -1286,8 +1313,9 @@
       const el = rigsEl.querySelector('.rig[data-rig="' + a.id + '"]'); if (!el) return;
       const lamp = el.querySelector('.l');
       if (lamp){
-        lamp.classList.remove('stale', 'lat-ok', 'lat-warn', 'lat-bad');
-        lamp.classList.add(a.stale ? 'lat-bad' : (a.latency == null || a.latency <= 60) ? 'lat-ok' : a.latency <= 160 ? 'lat-warn' : 'lat-bad');
+        lamp.classList.remove('stale', 'lat-ok', 'lat-warn', 'lat-bad', 'desync');
+        if (a.desynced && a.enabled !== false) lamp.classList.add('desync');
+        else lamp.classList.add(a.stale ? 'lat-bad' : (a.latency == null || a.latency <= 60) ? 'lat-ok' : a.latency <= 160 ? 'lat-warn' : 'lat-bad');
       }
       const lat = el.querySelector('.lat'); if (lat) lat.textContent = a.latency != null ? a.latency + ' ms' : '';
       const tg = el.querySelector('.rigtog'); if (tg){ tg.classList.toggle('on', a.enabled !== false); el.classList.toggle('off', a.enabled === false); }
@@ -1327,6 +1355,23 @@
     fetch('/cmd', { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify(withPin({ type:'speed', id, value: next })) }).catch(() => {});
   });
+  // Re-home: send every rig to the top and clear out-of-sync flags — the recovery
+  // for a rig that dropped, reconnected, and may have missed commands mid-show.
+  const rehomeBtn = document.getElementById('rehomeBtn');
+  rehomeBtn.addEventListener('click', async () => {
+    if (!inCommand){ toast('View only — take control to re-home', 'warn'); pulseCmd(); return; }
+    if (!armed){ toast('Disarmed — arm to re-home', 'warn'); return; }
+    rehomeBtn.classList.add('fire'); setTimeout(() => rehomeBtn.classList.remove('fire'), 160);
+    try {
+      const r = await fetch('/rehome', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(withPin({})) });
+      const j = await r.json();
+      if (j && j.ok){ toast('Re-home sent — every rig to the top', 'ok'); poll(); }
+      else if (j && j.notCommander){ inCommand = false; updateCmdUI(j.commander); toast('Someone else is in command', 'warn'); }
+      else if (j && j.disarmed){ toast('Disarmed — not sent', 'warn'); }
+      else { toast('Re-home not sent', 'warn'); }
+    } catch (_) { toast('Re-home failed', 'warn'); }
+  });
+
   function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   poll(); setInterval(poll, 1200);
 

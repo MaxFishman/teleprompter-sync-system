@@ -25,9 +25,16 @@
  */
 
 const http = require('http');
+const crypto = require('crypto');
 const { execFile, execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+
+// How long (ms) to wait with zero data from the hub before assuming the link is
+// dead and reconnecting. The hub pings every 2s, so ~3 missed pings. Guards against
+// a half-open socket (Wi-Fi dropped without a clean close) that would otherwise hang
+// for minutes while this rig silently falls behind.
+const IDLE_TIMEOUT = 6000;
 
 // --- args --------------------------------------------------------------------
 function arg(flag, def) {
@@ -37,6 +44,11 @@ function arg(flag, def) {
 const HOST = arg('--host', 'http://localhost:3000').replace(/\/+$/, '');
 const TARGET = arg('--target', '');            // app name, e.g. "Teleprompter"
 const NAME = arg('--name', `agent-${process.pid}`);
+// Stable client-id: lets the hub recognise this rig across reconnects, so a
+// drop-and-return mid-show is flagged as possibly-out-of-sync. Stable for the
+// life of the process (covers Wi-Fi blips); the host may pass --cid to keep it
+// stable across agent restarts too.
+const CID = arg('--cid', '') || ('cid-' + crypto.randomBytes(5).toString('hex'));
 const PIN = arg('--pin', ''); // optional session PIN enforced by the host
 const RESTORE = process.argv.includes('--restore-focus'); // for osascript fallback only
 // Loop guard (set by the host, which runs on the same machine as the controller
@@ -247,7 +259,12 @@ function connect() {
   const url = new URL(`${HOST}/events`);
   url.searchParams.set('name', NAME);
   url.searchParams.set('speed', String(SPEED));
+  url.searchParams.set('cid', CID);
   if (PIN) url.searchParams.set('pin', PIN);
+
+  let lastData = Date.now();
+  let watchdog = null;
+  const stopWatch = () => { if (watchdog) { clearInterval(watchdog); watchdog = null; } };
 
   const req = http.get(url, (res) => {
     if (res.statusCode !== 200) {
@@ -262,9 +279,25 @@ function connect() {
       `  [mouse ${MOUSE ? (HAVE_KEYPOST ? 'on' : 'needs keypost') : 'off'}]` +
       (HAVE_KEYPOST ? '  [keypost: on]' : '  [keypost: off, using osascript]'));
 
+    // Watchdog: if nothing (not even a heartbeat ping) arrives for IDLE_TIMEOUT,
+    // the link is dead — tear it down and reconnect instead of hanging on a
+    // half-open socket while this rig silently drifts behind.
+    lastData = Date.now();
+    stopWatch();
+    watchdog = setInterval(() => {
+      if (Date.now() - lastData > IDLE_TIMEOUT) {
+        console.error('no data from hub — reconnecting');
+        stopWatch();
+        try { req.destroy(); } catch (_) {}
+        retry();
+      }
+    }, 2000);
+    watchdog.unref && watchdog.unref();
+
     res.setEncoding('utf8');
     let buf = '';
     res.on('data', (chunk) => {
+      lastData = Date.now();
       buf += chunk;
       let idx;
       while ((idx = buf.indexOf('\n\n')) !== -1) {
@@ -290,10 +323,10 @@ function connect() {
         }
       }
     });
-    res.on('end', retry);
-    res.on('error', retry);
+    res.on('end', () => { stopWatch(); retry(); });
+    res.on('error', () => { stopWatch(); retry(); });
   });
-  req.on('error', (e) => { console.error(`connection error: ${e.message}`); retry(); });
+  req.on('error', (e) => { stopWatch(); console.error(`connection error: ${e.message}`); retry(); });
 }
 
 let retryTimer = null;

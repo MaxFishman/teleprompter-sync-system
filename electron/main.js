@@ -405,10 +405,20 @@ function toggleMini() { if (miniWin) destroyMini(); else createMini(); updateTra
 function stopAgent() { if (agentProc) { try { agentProc.kill(); } catch (_) {} agentProc = null; } }
 function stopHub() { if (hubServer) { try { hubServer.close(); } catch (_) {} hubServer = null; } }
 
+// A stable per-install client-id so this machine's rig is recognised across agent
+// restarts (not just socket reconnects), letting the hub flag it out-of-sync if it
+// missed commands while down.
+function machineCid() {
+  const cfg = loadConfig();
+  if (!cfg.agentCid) { cfg.agentCid = 'cid-' + require('crypto').randomBytes(5).toString('hex'); saveConfig(cfg); }
+  return cfg.agentCid;
+}
+
 function spawnAgent(args) {
   stopAgent();
   const agentPath = path.join(__dirname, '..', 'agent.js');
   const full = [...args];
+  if (!full.includes('--cid')) full.push('--cid', machineCid());
   if (keypostPath) full.push('--keypost', keypostPath);
   agentProc = spawn(process.execPath, [agentPath, ...full], {
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },

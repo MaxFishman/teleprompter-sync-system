@@ -37,6 +37,8 @@ function createHub() {
   const agents = new Map();   // id -> { id, name, ip, res, speed, connectedAt, latency, lastAckSeq, lastAckAt }
   const observers = new Set();  // read-only SSE streams (HUD): receive feed, never counted
   const sentAt = new Map();   // seq -> send time, for round-trip latency
+  const seenCids = new Set(); // agent client-ids seen this session — a repeat means a reconnect
+  const STALE_REAP_MS = 9000; // reap an agent that hasn't acked a heartbeat in this long (half-open socket)
 
   function broadcast(payload) {
     payload.seq = ++cmdSeq; latestSeq = cmdSeq;
@@ -69,8 +71,20 @@ function createHub() {
     }
   }
   // Heartbeat doubles as a latency probe: a data ping every 2s that agents ack.
+  // It's also when we reap half-open rigs — a Wi-Fi drop without a clean close
+  // leaves a socket that never throws on write, so an agent can linger "connected"
+  // while receiving nothing. No ack for STALE_REAP_MS → drop it, so the rig count
+  // and the console's sync state stay honest (and the operator gets a drop alert).
   const heartbeat = setInterval(() => {
     broadcast({ type: 'ping', ts: Date.now() });
+    const now = Date.now();
+    for (const a of [...agents.values()]) {
+      const last = a.lastAckAt || a.connectedAt || now;
+      if (now - last > STALE_REAP_MS) {
+        console.log(`[-] agent #${a.id} (${a.name}) reaped — no ack for ${Math.round((now - last) / 1000)}s`);
+        removeAgent(a.id);
+      }
+    }
     for (const res of observers) { try { res.write(`: k\n\n`); } catch (_) { observers.delete(res); } }
   }, 2000);
   heartbeat.unref && heartbeat.unref();
@@ -84,6 +98,15 @@ function createHub() {
     commander: commanderInfo,
     claim(id, name) { commander = { id, name: name || 'controller', at: Date.now() }; },
     release(id) { if (commander && commander.id === id) commander = null; },
+    // A client-id we've already seen this session reconnecting means it was gone
+    // for a while and may have missed commands — flag it until a re-home realigns.
+    noteConnect(cid) {
+      if (!cid) return false;
+      const reconnected = seenCids.has(cid);
+      seenCids.add(cid);
+      return reconnected;
+    },
+    clearDesync() { for (const a of agents.values()) a.desynced = false; },
     // Refresh (or auto-claim) command on a sent control cmd; returns false if someone else holds it.
     touchCommand(id, name) {
       const c = commanderInfo();
@@ -174,9 +197,13 @@ function start(opts = {}) {
       const id = hub.nextAgentId;
       const name = url.searchParams.get('name') || `agent-${id}`;
       const speed = Math.max(1, Math.min(10, Math.round(Number(url.searchParams.get('speed')) || 1)));
+      const cid = url.searchParams.get('cid') || '';
+      // A returning client-id missed whatever was sent while it was gone — mark it
+      // out-of-sync so the console flags it and prompts a re-home.
+      const desynced = hub.noteConnect(cid);
       res.write(`data: ${JSON.stringify({ type: 'hello', id })}\n\n`);
-      hub.agents.set(id, { id, name, ip, res, speed, enabled: true, connectedAt: Date.now() });
-      console.log(`[+] agent #${id} (${name}) from ${ip} — ${hub.agents.size} connected`);
+      hub.agents.set(id, { id, name, ip, res, speed, cid, enabled: true, desynced, connectedAt: Date.now() });
+      console.log(`[+] agent #${id} (${name}) from ${ip} — ${hub.agents.size} connected${desynced ? ' (reconnected — flagged out of sync)' : ''}`);
       req.on('close', () => hub.removeAgent(id));
       return;
     }
@@ -250,6 +277,30 @@ function start(opts = {}) {
       return;
     }
 
+    // Re-home: send every rig to the top (absolute Home) to re-establish a known
+    // common position, and clear the out-of-sync flags. The recovery primitive for
+    // when a rig dropped, reconnected, and may have missed commands mid-show.
+    if (url.pathname === '/rehome' && req.method === 'POST') {
+      const body = await readBody(req);
+      let a; try { a = JSON.parse(body); } catch (_) { a = {}; }
+      if (PIN && a.pin !== PIN) { res.writeHead(403, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }).end('{"ok":false,"pin":true}'); return; }
+      if (a.cid && !hub.touchCommand(a.cid, a.cname)) {
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ ok: false, notCommander: true, commander: hub.commander() }));
+        return;
+      }
+      if (!hub.armed) {
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ ok: false, disarmed: true }));
+        return;
+      }
+      hub.broadcast({ type: 'key', code: 'Home' });   // absolute jump to top on every enabled rig
+      hub.clearDesync();
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ ok: true, delivered: hub.agents.size }));
+      return;
+    }
+
     // Control handoff: take or release "command" of the session.
     if (url.pathname === '/command' && req.method === 'POST') {
       const body = await readBody(req);
@@ -289,6 +340,7 @@ function start(opts = {}) {
           lastAckSeq: a.lastAckSeq || 0,
           synced: a.enabled === false ? true : (a.lastAckSeq || 0) >= hub.latestSeq,
           stale: a.lastAckAt ? (now - a.lastAckAt > 5000) : true,
+          desynced: !!a.desynced,
         })),
       }));
       return;
