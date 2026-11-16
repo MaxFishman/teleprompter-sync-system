@@ -3,6 +3,34 @@
 All notable changes to **Teleprompter Sync System (TSS)** are recorded here.
 Format based on [Keep a Changelog](https://keepachangelog.com/). Dates are ISO (YYYY-MM-DD).
 
+## [1.11.1] - 2026-11-16
+
+### Fixed
+- **Electron crash from a key feedback loop** — when hosting (the host is also a rig), with no explicit
+  target the host agent injected keys into the frontmost app — the controller console itself — whose
+  keydown/wheel handlers re-transmitted them, looping as fast as the network allowed and flooding the
+  macOS event queue until the machine hung. The loop is now closed at the source and backstopped.
+  (`agent.js`, `electron/main.js`, `electron/launch.html`)
+
+### Added
+- **Wheel-drives-rigs toggle** — mouse-wheel scroll control is now opt-in (off by default and
+  persisted), so scrolling the console window never moves the prompters until you enable it.
+  (`public/index.html`)
+- **`--guard-frontmost` agent flag** — a host-side guard that refuses to inject into the frontmost app
+  (no target) or into the controller app itself, so the host can never type into its own console. The
+  Electron host passes it automatically; dedicated rig laptops keep the documented frontmost behavior.
+  (`agent.js`, `electron/main.js`)
+
+### Changed
+- **One-window console** — the control console is laid out to fit the window (≥861px): transport,
+  roll/all-stop, speed, rigs, and sync state are all visible without scrolling the page; the side column
+  scrolls internally if needed. (`public/index.html`)
+- **Hosting requires a target app** — the launch screen now requires you to name the teleprompter app
+  before hosting, so input always has an explicit, non-console destination. (`electron/launch.html`)
+- **Injection rate cap** — the agent caps injection at 20 commands/sec as a defense-in-depth backstop
+  against any feedback loop; real input (a human, or auto-scroll) stays far below the ceiling.
+  (`agent.js`)
+
 ## [1.11.0] - 2026-11-16
 
 ### Added
