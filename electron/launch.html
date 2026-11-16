@@ -185,8 +185,8 @@
     <!-- HOST -->
     <form id="hostForm">
       <div class="field">
-        <label>Teleprompter app on this Mac</label>
-        <input id="hTarget" list="appList" placeholder="pick or type an app…" autocomplete="off" />
+        <label>Teleprompter app on this Mac <span style="opacity:.6">— required</span></label>
+        <input id="hTarget" list="appList" placeholder="pick or type an app…" autocomplete="off" required />
       </div>
       <div class="two">
         <div class="field">
@@ -345,9 +345,18 @@
 
   hostForm.addEventListener('submit', async (e) => {
     e.preventDefault(); err.textContent = '';
+    const target = $('hTarget').value.trim();
+    // Require an explicit teleprompter app. Without one the host agent would type
+    // into the frontmost app — the controller console itself — creating a key
+    // feedback loop that can flood macOS and hang the machine.
+    if (!target) {
+      err.textContent = 'Pick the teleprompter app this Mac should drive before hosting.';
+      $('hTarget').focus();
+      return;
+    }
     const btn = $('hostGo'); btn.disabled = true; btn.textContent = 'Starting…';
     try {
-      await window.tss.host({ target: $('hTarget').value.trim(), speed: Number($('hSpeed').value) || 1, pin: $('hPin').value.trim(), keymap });
+      await window.tss.host({ target, speed: Number($('hSpeed').value) || 1, pin: $('hPin').value.trim(), keymap });
     } catch (ex) {
       err.textContent = 'Could not start hosting: ' + (ex && ex.message ? ex.message : ex);
       btn.disabled = false; btn.textContent = 'Start hosting';

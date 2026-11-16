@@ -464,6 +464,10 @@ ipcMain.handle('host-session', async (_e, opts = {}) => {
   const res = await startHub(Number(opts.port) || 3000, pin);
   hubServer = res.server; hubRef = res.hub;
   const args = ['--host', `http://localhost:${res.port}`, '--name', 'host', '--no-mouse', '--speed', String(opts.speed || 1)];
+  // Host runs on the same machine as the controller console, so guard against the
+  // agent ever typing into it (which would feedback-loop and could hang the Mac):
+  // no frontmost injection, and never target the controller app itself.
+  args.push('--guard-frontmost', '--self-name', app.getName());
   if (opts.target) args.push('--target', opts.target);
   if (pin) args.push('--pin', pin);
   if (opts.keymap && Object.keys(opts.keymap).length) args.push('--keymap', JSON.stringify(opts.keymap));

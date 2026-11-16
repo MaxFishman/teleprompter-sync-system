@@ -39,6 +39,14 @@ const TARGET = arg('--target', '');            // app name, e.g. "Teleprompter"
 const NAME = arg('--name', `agent-${process.pid}`);
 const PIN = arg('--pin', ''); // optional session PIN enforced by the host
 const RESTORE = process.argv.includes('--restore-focus'); // for osascript fallback only
+// Loop guard (set by the host, which runs on the same machine as the controller
+// console). When on, the agent will NEVER type into the controller: it refuses
+// frontmost injection (no --target → frontmost is the console → key feedback loop
+// that can flood macOS and hang the machine) and refuses a target that IS the
+// controller app. A dedicated rig laptop runs without this flag and keeps the
+// documented "frontmost app" convenience.
+const GUARD_FRONTMOST = process.argv.includes('--guard-frontmost');
+const SELF_NAME = arg('--self-name', ''); // controller app name to never inject into
 
 // Scroll speed = how many line-scroll key presses this laptop makes per command.
 // Tune per laptop so two different teleprompter apps advance at the same rate.
@@ -123,8 +131,29 @@ function injectAllowed() {
   return true;
 }
 
+// --- loop guard --------------------------------------------------------------
+// Returns true if injecting now would type into the controller console (which
+// re-transmits the keystroke → feedback loop). Only active on the host agent.
+let guardWarned = false;
+function wouldHitController() {
+  if (!GUARD_FRONTMOST) return false;
+  // No target → osascript/keypost would hit the frontmost app, which on the host
+  // is the controller console. Refuse.
+  if (!TARGET) return true;
+  // Target explicitly set to the controller app → also a loop. Refuse.
+  if (SELF_NAME && TARGET.trim().toLowerCase() === SELF_NAME.trim().toLowerCase()) return true;
+  return false;
+}
+function guardSkip() {
+  if (!guardWarned) {
+    guardWarned = true;
+    process.stderr.write('no injection target on the host — skipping (would type into the controller console)\n');
+  }
+}
+
 // --- injection ---------------------------------------------------------------
 function inject(code) {
+  if (wouldHitController()) return guardSkip(); // never feed keys back into the console
   if (!injectAllowed()) return;  // safety: never let a feedback loop flood the OS
   // Line-scroll keys repeat SPEED times; jumps/toggles always fire once.
   const count = SCROLL_KEYS.has(code) ? SPEED : 1;
@@ -227,7 +256,8 @@ function connect() {
       return retry();
     }
     console.log(`connected to ${HOST} as "${NAME}"` +
-      (TARGET ? `  → target "${TARGET}"` : '  → frontmost app') +
+      (TARGET ? `  → target "${TARGET}"`
+              : (GUARD_FRONTMOST ? '  → no target (injection disabled — pick a target app)' : '  → frontmost app')) +
       `  [speed ${SPEED}]` +
       `  [mouse ${MOUSE ? (HAVE_KEYPOST ? 'on' : 'needs keypost') : 'off'}]` +
       (HAVE_KEYPOST ? '  [keypost: on]' : '  [keypost: off, using osascript]'));
