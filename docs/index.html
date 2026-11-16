@@ -53,21 +53,22 @@
   nav.open .hamburger span:nth-child(2){ opacity:0; }
   nav.open .hamburger span:nth-child(3){ transform:translateY(-7px) rotate(-45deg); background:var(--ink); }
 
-  /* collapse the menu into a hamburger when the links won't fit */
-  @media (max-width:720px){
-    .brand .full{ display:none; }          /* keep just the glyph + TSS */
-    .hamburger{ display:flex; }
-    .nav-links{
-      position:absolute; top:100%; left:0; right:0;
-      flex-direction:column; align-items:stretch; gap:0;
-      background:#0b0e12;
-      border-bottom:1px solid var(--hair); padding:6px 18px 14px;
-      box-shadow:0 24px 40px -18px #000; display:none;
-    }
-    nav.open .nav-links{ display:flex; }
-    .nav-links .lnk{ padding:14px 6px; font-size:16px; border-top:1px solid var(--hair); }
-    .nav-links .lnk:first-child{ border-top:0; }
+  /* links never wrap to a second line — they overflow, which JS detects */
+  .nav-links, .nav a.lnk, .brand { white-space:nowrap; }
+
+  /* collapse to a hamburger as soon as the links would overflow (JS-driven) */
+  nav.collapsed .brand .full{ display:none; }   /* keep just the glyph + TSS */
+  nav.collapsed .hamburger{ display:flex; }
+  nav.collapsed .nav-links{
+    position:absolute; top:100%; left:0; right:0;
+    flex-direction:column; align-items:stretch; gap:0;
+    background:#0b0e12;
+    border-bottom:1px solid var(--hair); padding:6px 18px 14px;
+    box-shadow:0 24px 40px -18px #000; display:none;
   }
+  nav.collapsed.open .nav-links{ display:flex; }
+  nav.collapsed .nav-links .lnk{ padding:14px 6px; font-size:16px; border-top:1px solid var(--hair); }
+  nav.collapsed .nav-links .lnk:first-child{ border-top:0; }
   .btn{ display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-weight:600;
     border-radius:10px; padding:10px 16px; font-size:14px; transition:transform .06s, filter .15s, box-shadow .15s; }
   .btn.primary{ color:#1a1205; background:linear-gradient(180deg,var(--amber-soft),var(--amber));
@@ -377,14 +378,25 @@
   (function(){
     var nav = document.getElementById('nav');
     var ham = document.getElementById('hamburger');
+    var inner = nav.querySelector('.nav');
     function close(){ nav.classList.remove('open'); ham.setAttribute('aria-expanded','false'); }
+    // Collapse to the hamburger the moment the inline links would overflow.
+    function fit(){
+      nav.classList.remove('collapsed');            // measure in the full state…
+      if (inner.scrollWidth > inner.clientWidth + 1) nav.classList.add('collapsed'); // …then decide (no paint between)
+      else close();
+    }
     ham.addEventListener('click', function(){
       var open = nav.classList.toggle('open');
       ham.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
     document.querySelectorAll('#navLinks a').forEach(function(a){ a.addEventListener('click', close); });
-    addEventListener('resize', function(){ if (innerWidth > 720) close(); });
+    var raf;
+    addEventListener('resize', function(){ cancelAnimationFrame(raf); raf = requestAnimationFrame(fit); });
     addEventListener('keydown', function(e){ if (e.key === 'Escape') close(); });
+    fit();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+    setTimeout(fit, 300);
   })();
 </script>
 

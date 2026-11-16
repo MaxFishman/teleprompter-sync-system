@@ -2,11 +2,14 @@
 // Bundles the hub + agent so hosting/joining needs no Terminal and no separate
 // Node install (the agent runs under Electron's own Node via ELECTRON_RUN_AS_NODE).
 
-const { app, BrowserWindow, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, shell, dialog, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const https = require('https');
 const { spawn, execFileSync } = require('child_process');
 const hub = require('../server.js');
+
+const REPO = 'MaxFishman/teleprompter-sync-system';
 
 let win = null;
 let hudWin = null;
@@ -15,6 +18,94 @@ let hubServer = null;
 let keypostPath = null;
 let sessionActive = false;
 let sessionHost = '';   // URL the HUD watches for live status
+
+// --- in-app updates (checks GitHub Releases) ---------------------------------
+function httpsJSON(url, redirects = 0) {
+  return new Promise((resolve, reject) => {
+    https.get(url, { headers: { 'User-Agent': 'TSS', Accept: 'application/vnd.github+json' } }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirects < 5) {
+        res.resume(); return httpsJSON(res.headers.location, redirects + 1).then(resolve, reject);
+      }
+      if (res.statusCode !== 200) { res.resume(); return reject(new Error('HTTP ' + res.statusCode)); }
+      let d = ''; res.on('data', (c) => (d += c)); res.on('end', () => { try { resolve(JSON.parse(d)); } catch (e) { reject(e); } });
+    }).on('error', reject);
+  });
+}
+function isNewer(current, latest) {
+  const a = String(current).replace(/^v/, '').split('.').map(Number);
+  const b = String(latest).replace(/^v/, '').split('.').map(Number);
+  for (let i = 0; i < 3; i++) { if ((b[i] || 0) > (a[i] || 0)) return true; if ((b[i] || 0) < (a[i] || 0)) return false; }
+  return false;
+}
+async function getUpdate() {
+  try {
+    const rel = await httpsJSON(`https://api.github.com/repos/${REPO}/releases/latest`);
+    const latest = (rel.tag_name || '').replace(/^v/, '');
+    const current = app.getVersion();
+    const dmg = (rel.assets || []).find((a) => /\.dmg$/i.test(a.name));
+    return { current, latest, newer: !!latest && isNewer(current, latest), notes: (rel.body || '').slice(0, 4000),
+      page: rel.html_url, dmg: dmg ? dmg.browser_download_url : rel.html_url };
+  } catch (e) { return { current: app.getVersion(), latest: null, newer: false, error: String(e.message || e) }; }
+}
+function downloadFile(url, dest, onProgress, redirects = 0) {
+  return new Promise((resolve, reject) => {
+    const file = fs.createWriteStream(dest);
+    https.get(url, { headers: { 'User-Agent': 'TSS' } }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirects < 5) {
+        file.close(); fs.unlink(dest, () => {});
+        return downloadFile(res.headers.location, dest, onProgress, redirects + 1).then(resolve, reject);
+      }
+      if (res.statusCode !== 200) { res.resume(); file.close(); fs.unlink(dest, () => {}); return reject(new Error('HTTP ' + res.statusCode)); }
+      const total = Number(res.headers['content-length'] || 0); let got = 0;
+      res.on('data', (c) => { got += c.length; if (total) onProgress(got / total); });
+      res.pipe(file);
+      file.on('finish', () => file.close(() => resolve(dest)));
+    }).on('error', (e) => { file.close(); fs.unlink(dest, () => {}); reject(e); });
+  });
+}
+async function checkUpdatesInteractive() {
+  const u = await getUpdate();
+  if (u.newer) {
+    const r = await dialog.showMessageBox(win, { type: 'info', buttons: ['Download', 'Later'], defaultId: 0, cancelId: 1,
+      message: `Update available — TSS ${u.latest}`, detail: `You have ${u.current}. Download the new version?` });
+    if (r.response === 0) shell.openExternal(u.dmg);
+  } else {
+    dialog.showMessageBox(win, { type: 'info', buttons: ['OK'],
+      message: "You're up to date", detail: `TSS ${u.current} is the latest version.` });
+  }
+}
+function buildMenu() {
+  const isMac = process.platform === 'darwin';
+  const template = [
+    ...(isMac ? [{ label: app.name, submenu: [
+      { role: 'about' },
+      { label: 'Check for Updates…', click: checkUpdatesInteractive },
+      { type: 'separator' },
+      { role: 'services' }, { type: 'separator' },
+      { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' },
+      { type: 'separator' }, { role: 'quit' },
+    ] }] : []),
+    { label: 'Edit', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
+    { label: 'View', submenu: [{ role: 'reload' }, { role: 'togglefullscreen' }, { type: 'separator' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }] },
+    { label: 'Window', submenu: [{ role: 'minimize' }, { role: 'zoom' }, { role: 'close' }] },
+    { label: 'Help', submenu: [
+      { label: 'TSS Website', click: () => shell.openExternal('https://maxfishman.github.io/teleprompter-sync-system/') },
+      { label: 'Releases & Changelog', click: () => shell.openExternal(`https://github.com/${REPO}/releases`) },
+      { label: 'Check for Updates…', click: checkUpdatesInteractive },
+    ] },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+ipcMain.handle('check-updates', () => getUpdate());
+ipcMain.handle('open-external', (_e, url) => shell.openExternal(url));
+ipcMain.handle('download-update', async (_e, url) => {
+  const name = (url.split('/').pop() || 'Teleprompter-Sync-System.dmg');
+  const dest = path.join(app.getPath('downloads'), name);
+  await downloadFile(url, dest, (p) => { if (win && !win.isDestroyed()) win.webContents.send('update-progress', p); });
+  shell.openPath(dest); // mount the DMG so the user can drag to Applications
+  return { path: dest };
+});
 
 // Build (or locate) the keypost helper so key/mouse injection is focus-safe.
 function resolveKeypost() {
@@ -93,6 +184,7 @@ async function startHub(preferred) {
 
 app.whenReady().then(() => {
   keypostPath = resolveKeypost();
+  buildMenu();
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });

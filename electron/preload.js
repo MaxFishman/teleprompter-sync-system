@@ -5,4 +5,8 @@ contextBridge.exposeInMainWorld('tss', {
   join: (opts) => ipcRenderer.invoke('join-session', opts),
   leave: () => ipcRenderer.invoke('leave-session'),
   focusMain: () => ipcRenderer.invoke('focus-main'),
+  checkUpdates: () => ipcRenderer.invoke('check-updates'),
+  downloadUpdate: (url) => ipcRenderer.invoke('download-update', url),
+  onUpdateProgress: (cb) => ipcRenderer.on('update-progress', (_e, p) => cb(p)),
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
 });

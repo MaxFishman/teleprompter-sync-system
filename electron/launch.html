@@ -44,6 +44,26 @@
   .seg button.on{ background:linear-gradient(180deg,#2c333c,#20262e); color:var(--ink);
     box-shadow:0 1px 0 rgba(255,255,255,.06) inset }
 
+  /* update banner */
+  .update{ margin:20px 0 0; padding:14px 15px; border-radius:12px;
+    background:linear-gradient(180deg,#2a2114,#20190f); border:1px solid #5a4418; }
+  .update-row{ display:flex; align-items:center; gap:11px; }
+  .up-dot{ width:9px; height:9px; border-radius:50%; flex:none;
+    background:var(--amber); box-shadow:0 0 10px var(--amber-glow); }
+  .up-txt{ flex:1; display:flex; flex-direction:column; min-width:0; }
+  .up-txt b{ font-size:13.5px; color:var(--amber-soft); }
+  .up-txt span{ font-size:12px; color:var(--ink-dim); }
+  .up-notes{ font-size:12px; color:var(--ink-dim); text-decoration:underline; cursor:pointer; flex:none; }
+  .up-notes:hover{ color:var(--ink); }
+  .up-actions{ margin-top:11px; }
+  .up-btn{ width:100%; min-height:42px; cursor:pointer; border:0; border-radius:10px;
+    font-family:var(--sans); font-size:14px; font-weight:600; color:#1a1205;
+    background:linear-gradient(180deg,var(--amber-soft),var(--amber)); }
+  .up-btn:active{ transform:translateY(1px); }
+  .up-btn:disabled{ filter:saturate(.5) brightness(.9); cursor:default; }
+  .up-prog{ height:8px; border-radius:5px; background:var(--well); overflow:hidden; margin-top:8px; }
+  .up-bar{ height:100%; width:0; background:linear-gradient(90deg,var(--amber-soft),var(--amber)); transition:width .15s; }
+
   label{ display:block; font-size:12px; color:var(--ink-dim); margin:0 0 7px 2px; letter-spacing:.02em }
   .field{ margin-bottom:16px }
   input{ width:100%; font-family:var(--sans); font-size:15px; color:var(--ink);
@@ -72,6 +92,18 @@
       <div>
         <h1>TELEPROMPTER&nbsp;SYNC&nbsp;SYSTEM</h1>
         <div class="sub"><b style="color:var(--amber-soft)">TSS</b> · drive two redundant rigs as one</div>
+      </div>
+    </div>
+
+    <div class="update" id="update" hidden>
+      <div class="update-row">
+        <span class="up-dot"></span>
+        <div class="up-txt"><b id="upVer">Update available</b><span id="upSub">A new version is ready.</span></div>
+        <a class="up-notes" id="upNotes" href="#">What's new</a>
+      </div>
+      <div class="up-actions">
+        <button class="up-btn" id="upGet">Download &amp; install</button>
+        <div class="up-prog" id="upProg" hidden><div class="up-bar" id="upBar"></div></div>
       </div>
     </div>
 
@@ -173,6 +205,32 @@
       btn.disabled = false; btn.textContent = 'Join session';
     }
   });
+
+  // check GitHub for a newer release and offer an in-app download
+  (async function(){
+    if (!window.tss || !window.tss.checkUpdates) return;
+    let u;
+    try { u = await window.tss.checkUpdates(); } catch (_) { return; }
+    if (!u || !u.newer) return;
+    $('upVer').textContent = 'Update available — TSS ' + u.latest;
+    $('upSub').textContent = 'You have ' + u.current + '.';
+    $('upNotes').addEventListener('click', function(e){ e.preventDefault(); window.tss.openExternal(u.page); });
+    var get = $('upGet'), prog = $('upProg'), bar = $('upBar');
+    window.tss.onUpdateProgress(function(p){ prog.hidden = false; bar.style.width = Math.round(p * 100) + '%'; });
+    get.addEventListener('click', async function(){
+      if (!/\.dmg$/i.test(u.dmg)) { window.tss.openExternal(u.dmg); return; }
+      get.disabled = true; get.textContent = 'Downloading…';
+      try {
+        await window.tss.downloadUpdate(u.dmg);
+        bar.style.width = '100%';
+        get.textContent = 'Installer opened — drag TSS to Applications';
+      } catch (err) {
+        window.tss.openExternal(u.dmg);
+        get.textContent = 'Opened in browser';
+      }
+    });
+    $('update').hidden = false;
+  })();
 </script>
 </body>
 </html>

@@ -1,10 +1,11 @@
 {
   "name": "teleprompter-sync-system",
   "productName": "Teleprompter Sync System",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "TSS — sync two redundant teleprompter rigs: one keyboard & mouse drives both, over the local network.",
   "author": "Max Fishman <daniel@fishman.org>",
   "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/MaxFishman/teleprompter-sync-system.git" },
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
@@ -24,6 +25,7 @@
     "appId": "org.fishman.tss",
     "productName": "Teleprompter Sync System",
     "asar": false,
+    "publish": [{ "provider": "github", "owner": "MaxFishman", "repo": "teleprompter-sync-system" }],
     "files": [
       "electron/**",
       "public/**",

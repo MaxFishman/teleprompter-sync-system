@@ -7,7 +7,7 @@
 No cloud. No subscription. No drift.
 
 [![macOS](https://img.shields.io/badge/macOS-11%2B-0b0e12?logo=apple&logoColor=f4a836)](https://github.com/MaxFishman/teleprompter-sync-system/releases/latest)
-[![version](https://img.shields.io/badge/version-1.1.0-f4a836)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-1.2.0-f4a836)](CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-MIT-53e08a)](LICENSE)
 [![built for](https://img.shields.io/badge/built%20for-live%20production-7e8893)](#why-tss)
 
@@ -86,6 +86,8 @@ The native app bundles the hub, agent, and injector. Pick a role and go — no T
 Drive from the console (or press keys / move the mouse) — every rig follows. That's it.
 
 > **One-time:** macOS will ask for **Accessibility** permission the first time TSS sends input — System Settings → Privacy & Security → Accessibility → enable **Teleprompter Sync System**.
+>
+> **Updates:** TSS checks GitHub for new versions on launch — when one's available you can download and install it right from the app (or **Check for Updates…** in the menu bar).
 
 ## Requirements
 

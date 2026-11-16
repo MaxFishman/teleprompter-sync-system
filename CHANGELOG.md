@@ -3,6 +3,24 @@
 All notable changes to **Teleprompter Sync System (TSS)** are recorded here.
 Format based on [Keep a Changelog](https://keepachangelog.com/). Dates are ISO (YYYY-MM-DD).
 
+## [1.2.0] - 2026-11-16
+
+### Added
+- **In-app updates** — the app checks GitHub Releases on launch and from the menu
+  (**Teleprompter Sync System → Check for Updates…**). When a newer version exists, the
+  launch screen shows a banner that downloads the new DMG with a progress bar and opens the
+  installer — no browser trip. (`electron/main.js`, `electron/preload.js`, `electron/launch.html`)
+- **Native application menu** — a proper macOS menu with Check for Updates, standard
+  Edit/View/Window roles, and Help links (website, releases). (`electron/main.js`)
+- `publish` config + `repository` field so releases are update-discoverable. (`package.json`)
+
+### Changed
+- **Site nav collapses by overflow, not a fixed width** — it switches to a hamburger the
+  moment the links would overflow, so menu labels never wrap to a second line. (`docs/index.html`)
+
+> Note: fully silent auto-install (replace-in-place) needs a signed + notarized build;
+> the current unsigned flow downloads and opens the DMG for a one-drag install.
+
 ## [1.1.0] - 2026-11-16
 
 ### Added
