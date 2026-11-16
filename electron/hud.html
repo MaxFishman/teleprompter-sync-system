@@ -58,7 +58,7 @@
     </div>
     <div class="url" id="url">—</div>
     <div class="foot">
-      <div class="rigs"><b id="count">0</b> rigs linked</div>
+      <div class="rigs"><b id="count">0</b> <span id="rigword">rigs</span> linked</div>
       <div class="act" id="act"><span class="dot"></span><span class="label" id="label">click to open console</span></div>
     </div>
   </div>
@@ -82,6 +82,7 @@
       const r = await fetch(host + '/status', { cache:'no-store' });
       const s = await r.json();
       countEl.textContent = s.count;
+      document.getElementById('rigword').textContent = s.count === 1 ? 'rig' : 'rigs';
       lamp.classList.add('live'); state.textContent = 'live';
     } catch (_) {
       lamp.classList.remove('live'); state.textContent = 'offline';

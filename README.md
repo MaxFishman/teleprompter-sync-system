@@ -38,6 +38,45 @@ Every serious live broadcast runs a **backup teleprompter** in case the primary 
 | 📱 **Join from a phone or tablet** | Scan a QR code to turn any device into a wireless controller. |
 | 🛰️ **Local network only** | Everything stays on your Wi-Fi/LAN. No accounts, no servers, no data leaves the room. |
 
+## A closer look
+
+Every control lives in one window, and every move is mirrored to each rig. Here it is, piece by piece.
+
+### Transport — scroll & page as one
+<img src="assets/features/scroll.png" alt="Scroll up and down transport keys" width="440" />
+
+Oversized keys drive line scroll, Page Up/Down, and jump to top/bottom — fired to every rig the instant you press, by touch or keyboard.
+
+### Master speed — set the pace for all rigs
+<img src="assets/features/speed.png" alt="Master speed module with level meter" width="560" />
+
+One control sets how far every rig scrolls per press, with a live level meter. Tap `−` / `=` or use the on-screen stepper.
+
+### Per-rig trim — fine-tune each rig
+<img src="assets/features/rigs.png" alt="Per-rig speed stepper" width="500" />
+
+A live list of connected rigs, each with its own speed stepper — so two teleprompter apps that scroll at different rates still stay line-for-line.
+
+### Pointer — mirror the mouse
+<img src="assets/features/pointer.png" alt="Pointer pad with Mirror and Trackpad modes" width="420" />
+
+Move and click on the backups from a **Mirror** (absolute) or **Trackpad** (relative) surface, plus dedicated left/right click. The host keeps its own mouse.
+
+### Join — bring in a phone or tablet
+<img src="assets/features/join.png" alt="Join panel with LAN URL and QR" width="440" />
+
+A scannable **QR** and copyable URL put the full controller on any device on the same Wi-Fi — a wireless remote in seconds.
+
+### Activity HUD — always know it's live
+<img src="assets/features/hud.png" alt="Floating activity HUD" width="360" />
+
+When the console isn't focused, a floating widget shows link status, rig count, and a live command ticker. Click it to jump back.
+
+### Host or join in one tap
+<img src="assets/features/launch.png" alt="Host / Join launch screen" width="380" />
+
+The native app bundles the hub, agent, and injector. Pick a role and go — no Terminal, no config files.
+
 ## Quick start
 
 1. **Download & install** — grab the [latest DMG](https://github.com/MaxFishman/teleprompter-sync-system/releases/latest), drag **Teleprompter Sync System** to Applications, and open it. (First launch of an unsigned app: right-click → **Open**.)
