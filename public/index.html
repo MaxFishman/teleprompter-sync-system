@@ -509,6 +509,59 @@
     .jog .head { transition:none; }
     .on .reveal { transition:none; }
   }
+
+  /* --- roll + all-stop transport row --- */
+  .xport { display:grid; grid-template-columns:1fr 1fr; gap:clamp(10px,1.6vw,16px); margin-top:clamp(10px,1.6vw,16px); }
+  .xbtn { -webkit-appearance:none; appearance:none; cursor:pointer; border-radius:12px;
+    border:1px solid var(--hair); border-bottom-color:#0c0f13; background:linear-gradient(180deg,#22272f,#171b21);
+    color:var(--ink-dim); font-family:var(--sans); font-size:clamp(13px,2.4vw,16px); letter-spacing:.03em; font-weight:600;
+    display:flex; align-items:center; justify-content:center; gap:9px; padding:0 14px; min-height:clamp(58px,8vh,82px);
+    user-select:none; transition:transform .06s, color .12s, box-shadow .12s, border-color .12s; }
+  .xbtn:hover { color:var(--amber-soft); box-shadow:0 0 0 1px var(--amber) inset; }
+  .xbtn:active { transform:translateY(1px); }
+  .xbtn .k { font-family:var(--mono); font-size:11px; color:var(--ink-faint); }
+  .xbtn.roll.go { color:var(--amber-soft); box-shadow:0 0 0 1px var(--amber) inset, 0 0 22px var(--amber-glow); }
+  .xbtn.stop { color:#f2a7a3; border-color:#5a211f; }
+  .xbtn.stop:hover { color:#fff; box-shadow:0 0 0 1px var(--live) inset, 0 0 22px var(--live-glow); }
+
+  /* --- identify button inside a rig row --- */
+  .rig .ident { -webkit-appearance:none; appearance:none; cursor:pointer; flex:none; width:30px; height:30px;
+    border-radius:8px; background:#171c22; border:1px solid var(--hair); color:var(--ink-dim); font-size:14px; line-height:1;
+    display:flex; align-items:center; justify-content:center; transition:color .12s, box-shadow .12s; }
+  .rig .ident:hover { color:var(--amber-soft); box-shadow:0 0 0 1px var(--amber) inset; }
+  .rig .ident.ping { color:var(--amber-soft); box-shadow:0 0 0 1px var(--amber) inset, 0 0 14px var(--amber-glow); }
+
+  /* --- full-screen overlays: cheat-sheet + roll slate --- */
+  .overlay { position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center;
+    background:rgba(6,8,11,.82); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); }
+  .overlay.show { display:flex; }
+  .cheat-box { width:min(560px,92vw); max-height:86vh; overflow:auto; text-align:left;
+    background:linear-gradient(180deg,var(--panel-2),var(--panel-1));
+    border:1px solid var(--hair); border-radius:16px; box-shadow:0 30px 80px -30px #000; padding:24px 26px; }
+  .cheat-box h3 { font-size:13px; letter-spacing:.16em; color:var(--ink-dim); margin:0 0 4px; font-weight:600; }
+  .cheat-box .ch-hint { color:var(--ink-faint); font-size:12.5px; margin:0 0 10px; }
+  .cheat-grp { margin:16px 0 0; }
+  .cheat-grp .lab { font-family:var(--mono); font-size:11px; letter-spacing:.12em; color:var(--amber-soft); margin-bottom:4px; }
+  .cheat-row { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:8px 0; border-top:1px solid #ffffff08; }
+  .cheat-row span { color:var(--ink-dim); font-size:14px; }
+  .cheat-row kbd { font-family:var(--mono); font-size:12px; color:var(--ink); background:#11151a;
+    border:1px solid var(--hair); border-bottom-width:2px; border-radius:7px; padding:4px 9px; white-space:nowrap; }
+  .cheat-x { margin-top:22px; width:100%; -webkit-appearance:none; appearance:none; cursor:pointer;
+    border:1px solid var(--hair); border-radius:10px; background:#171c22; color:var(--ink-dim); padding:11px; font-family:var(--sans); font-size:14px; }
+  .cheat-x:hover { color:var(--amber-soft); box-shadow:0 0 0 1px var(--amber) inset; }
+
+  .slate-n { font-family:var(--mono); font-weight:700; color:var(--ink); line-height:1;
+    font-size:min(42vw,320px); text-shadow:0 0 60px var(--amber-glow); }
+  .slate-n.go { color:var(--amber-soft); font-size:min(26vw,220px); letter-spacing:.05em; }
+  .slate-sub { position:absolute; bottom:12vh; font-family:var(--mono); letter-spacing:.3em; color:var(--ink-dim); font-size:13px; }
+  @media (prefers-reduced-motion:no-preference){ .overlay.show .slate-n { animation:slatePop .9s ease; } }
+  @keyframes slatePop { from{ transform:scale(.55); opacity:.15 } 45%{ opacity:1 } to{ transform:scale(1); opacity:.92 } }
+
+  /* help button in the rail */
+  .helpbtn { -webkit-appearance:none; appearance:none; cursor:pointer; width:34px; height:34px; flex:none;
+    border-radius:9px; background:#171c22; border:1px solid var(--hair); color:var(--ink-dim); font-size:16px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; }
+  .helpbtn:hover { color:var(--amber-soft); box-shadow:0 0 0 1px var(--amber) inset; }
 </style>
 </head>
 <body>
@@ -533,6 +586,7 @@
     <div class="sync" id="sync"><span class="sl"></span><span id="syncText">idle</span></div>
     <button class="armbtn armed" id="armBtn"><span class="al"></span><span id="armText">ARMED</span></button>
     <button class="alarmbtn" id="alarmBtn" title="Beep + flash if a rig drifts or drops"><span class="ab"></span><span id="alarmText">ALARM</span></button>
+    <button class="helpbtn" id="helpBtn" title="Keyboard shortcuts  ·  press ?">?</button>
     <button class="remotebtn" id="remoteBtn">⛶ Remote</button>
   </div>
 
@@ -608,6 +662,11 @@
           <button class="btn play" data-key="Space">
             <span class="tri"></span><span class="cap">Play / pause</span><span class="hint" style="margin-left:auto">Space</span>
           </button>
+        </div>
+
+        <div class="xport">
+          <button class="xbtn roll" id="rollBtn" title="3·2·1 roll — starts every rig together">🎬&nbsp;Roll<span class="k">R</span></button>
+          <button class="xbtn stop" id="stopBtn" title="All-stop — halts auto-scroll &amp; pauses every rig">■&nbsp;All-stop<span class="k">Esc</span></button>
         </div>
 
         <div class="speedmod">
@@ -695,6 +754,46 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- keyboard cheat-sheet -->
+  <div class="overlay" id="cheat" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+    <div class="cheat-box">
+      <h3>KEYBOARD SHORTCUTS</h3>
+      <p class="ch-hint">Click the console first so key presses transmit. Press <kbd style="font-family:var(--mono)">?</kbd> any time to reopen this.</p>
+
+      <div class="cheat-grp">
+        <div class="lab">TRANSPORT</div>
+        <div class="cheat-row"><span>Scroll up / down</span><kbd>↑&nbsp;&nbsp;↓</kbd></div>
+        <div class="cheat-row"><span>Page up / down</span><kbd>PgUp&nbsp;&nbsp;PgDn</kbd></div>
+        <div class="cheat-row"><span>Jump to top / bottom</span><kbd>Home&nbsp;&nbsp;End</kbd></div>
+        <div class="cheat-row"><span>Play / pause</span><kbd>Space</kbd></div>
+        <div class="cheat-row"><span>Scroll (either direction)</span><kbd>mouse wheel</kbd></div>
+        <div class="cheat-row"><span>Roll — 3·2·1 countdown</span><kbd>R</kbd></div>
+        <div class="cheat-row"><span>All-stop — halt every rig</span><kbd>Esc</kbd></div>
+      </div>
+
+      <div class="cheat-grp">
+        <div class="lab">SPEED</div>
+        <div class="cheat-row"><span>Slower / faster (all rigs)</span><kbd>−&nbsp;&nbsp;=</kbd></div>
+      </div>
+
+      <div class="cheat-grp">
+        <div class="lab">SYSTEM-WIDE · HOST APP · even when the console isn't focused</div>
+        <div class="cheat-row"><span>Scroll up / down</span><kbd>⌘⇧↑&nbsp;&nbsp;⌘⇧↓</kbd></div>
+        <div class="cheat-row"><span>Page up / down</span><kbd>⌘⇧←&nbsp;&nbsp;⌘⇧→</kbd></div>
+        <div class="cheat-row"><span>Play / pause</span><kbd>⌘⇧Space</kbd></div>
+        <div class="cheat-row"><span>Mini controller</span><kbd>⌘⇧M</kbd></div>
+      </div>
+
+      <button class="cheat-x" id="cheatClose">Close</button>
+    </div>
+  </div>
+
+  <!-- roll slate (3·2·1 countdown) -->
+  <div class="overlay" id="slate" aria-hidden="true">
+    <div class="slate-n" id="slateN">3</div>
+    <div class="slate-sub">ROLL IN…</div>
   </div>
 
   <div class="legend reveal d3">
@@ -919,6 +1018,7 @@
       '<div class="meta"><div class="nm">' + esc(a.name) + '</div>' +
       '<div class="ip">' + esc(a.ip || '—') + ' · <span class="lat">' + (a.latency != null ? a.latency + ' ms' : '') + '</span></div></div>' +
       '<canvas class="spark" width="96" height="40" aria-hidden="true"></canvas>' +
+      '<button class="ident" data-ident="' + a.id + '" title="Flash + beep this laptop" aria-label="identify this rig">🔦</button>' +
       '<div class="spd" data-id="' + a.id + '">' +
         '<button class="step" data-d="-1" aria-label="slower">−</button>' +
         '<span class="sv">' + (a.speed || 1) + '<small>lines</small></span>' +
@@ -981,6 +1081,14 @@
 
   // change a rig's scroll speed (delegated — list is rebuilt on poll)
   rigsEl.addEventListener('click', (e) => {
+    const idb = e.target.closest('.ident');
+    if (idb){
+      const id = Number(idb.dataset.ident);
+      idb.classList.add('ping'); setTimeout(() => idb.classList.remove('ping'), 800);
+      postCmd({ type:'identify', id });
+      toast((prevNames[id] || 'rig') + ' — identify ping sent', 'ok');
+      return;
+    }
     const tog = e.target.closest('.rigtog');
     if (tog){
       const id = Number(tog.dataset.tog);
@@ -1157,6 +1265,62 @@
   requestWake();
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') requestWake(); });
   addEventListener('pointerdown', requestWake, { once:true }); // iOS needs a gesture
+
+  // --- keyboard cheat-sheet ---
+  const cheat = document.getElementById('cheat');
+  function showCheat(on){ cheat.classList.toggle('show', !!on); }
+  document.getElementById('helpBtn').addEventListener('click', () => showCheat(true));
+  document.getElementById('cheatClose').addEventListener('click', () => showCheat(false));
+  cheat.addEventListener('click', (e) => { if (e.target === cheat) showCheat(false); });
+
+  // --- roll slate: a 3·2·1 countdown that starts every rig together ---
+  const slate = document.getElementById('slate'), slateN = document.getElementById('slateN');
+  const rollBtn = document.getElementById('rollBtn');
+  let slateTimer = null;
+  function paintSlate(txt, go){ slateN.classList.toggle('go', !!go); slateN.textContent = txt; void slateN.offsetWidth; }
+  function cancelRoll(){ if (slateTimer){ clearInterval(slateTimer); slateTimer = null; } slate.classList.remove('show'); rollBtn.classList.remove('go'); }
+  function startRoll(){
+    if (slateTimer || slate.classList.contains('show')) return;
+    let n = 3;
+    rollBtn.classList.add('go'); slate.classList.add('show'); paintSlate(n, false);
+    slateTimer = setInterval(() => {
+      n--;
+      if (n > 0) paintSlate(n, false);
+      else if (n === 0) paintSlate('ROLL', true);
+      else {
+        clearInterval(slateTimer); slateTimer = null;
+        slate.classList.remove('show'); rollBtn.classList.remove('go');
+        if (armed){ send('Space'); toast('Rolling — all rigs', 'ok'); }
+        else toast('Disarmed — roll not sent', 'warn');
+      }
+    }, 900);
+  }
+  rollBtn.addEventListener('click', startRoll);
+
+  // --- all-stop / blackout: kill the crawl + pause every rig (distinct from arm/disarm) ---
+  const stopBtn = document.getElementById('stopBtn');
+  function blackout(){
+    setAuto(false);                         // stop the console-driven auto-scroll at once
+    cancelRoll();                           // abort any pending roll
+    alarmFlash.classList.remove('hit'); void alarmFlash.offsetWidth; alarmFlash.classList.add('hit'); // red flash
+    if (armed){ send('Space'); toast('ALL STOP — rigs paused', 'drop'); }
+    else toast('ALL STOP — crawl halted', 'drop');
+  }
+  stopBtn.addEventListener('click', blackout);
+
+  // --- extra hotkeys: ? help · R roll · Esc close/all-stop (ignored while typing) ---
+  addEventListener('keydown', (e) => {
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === '?'){ e.preventDefault(); showCheat(!cheat.classList.contains('show')); }
+    else if (e.key === 'r' || e.key === 'R'){ e.preventDefault(); startRoll(); }
+    else if (e.key === 'Escape'){
+      if (cheat.classList.contains('show')){ showCheat(false); return; }
+      if (slate.classList.contains('show')){ cancelRoll(); return; }
+      e.preventDefault(); blackout();
+    }
+  });
 
   // --- power on ---
   requestAnimationFrame(() => document.body.classList.add('on'));

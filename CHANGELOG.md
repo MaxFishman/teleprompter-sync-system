@@ -3,6 +3,21 @@
 All notable changes to **Teleprompter Sync System (TSS)** are recorded here.
 Format based on [Keep a Changelog](https://keepachangelog.com/). Dates are ISO (YYYY-MM-DD).
 
+## [1.9.0] - 2026-11-16
+
+### Added
+- **Roll countdown / slate** — a 3·2·1 full-screen countdown (the **🎬 Roll** button or `R`) that
+  starts every rig together at zero; cancel with `Esc`. (`public/index.html`)
+- **All-stop / blackout** — a panic button (**■ All-stop** or `Esc`) that halts the auto-scroll
+  crawl on the spot and pauses every rig, with a red flash. Distinct from arm/disarm.
+  (`public/index.html`)
+- **Identify rig** — a 🔦 button on each rig in the RIGS panel makes that physical laptop beep and
+  show a notification banner, so you can tell which machine is which. (`public/index.html`, `agent.js`)
+- **Keyboard cheat-sheet** — press `?` (or the header **?**) for an overlay listing every console
+  and system-wide shortcut. (`public/index.html`)
+- **Download checksum + requirements** — the site shows the DMG's SHA-256 (with a verify command)
+  and an explicit "macOS 11+ · Apple silicon" line. (`docs/index.html`)
+
 ## [1.8.0] - 2026-11-16
 
 ### Added

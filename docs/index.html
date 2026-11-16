@@ -193,6 +193,15 @@
   .band h2{ margin-bottom:8px }
   .band .sub{ margin:0 auto 22px }
   .note{ margin-top:16px; font-size:12.5px; color:var(--ink-faint); }
+  .note.req{ color:var(--ink-dim); }
+  .sha{ display:inline-flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:8px 10px;
+    max-width:640px; margin-left:auto; margin-right:auto; }
+  .sha b{ color:var(--ink-dim); font-weight:600; }
+  .sha code{ font-family:var(--mono); color:var(--ink-dim); word-break:break-all; font-size:11.5px; }
+  .sha .shacopy{ -webkit-appearance:none; appearance:none; cursor:pointer; font-family:var(--mono); font-size:11px;
+    color:var(--amber-soft); background:transparent; border:1px solid var(--hair); border-radius:7px; padding:3px 9px; }
+  .sha .shacopy:hover{ box-shadow:0 0 0 1px var(--amber) inset; }
+  .sha .shacmd{ width:100%; color:var(--ink-faint); }
 
   /* "new in 1.6" callout near the download button */
   .whatsnew{ margin:22px auto 0; max-width:560px; text-align:left;
@@ -587,7 +596,14 @@
     <p class="sub">Free and open source. Download the macOS app and sync your rigs in minutes.</p>
     <a class="btn primary" href="https://github.com/MaxFishman/teleprompter-sync-system/releases/latest" style="font-size:16px;padding:13px 22px">⬇&nbsp; Download for macOS</a>
     <div class="note" id="relStat"></div>
+    <div class="note req">macOS 11 Big Sur or later · Apple&nbsp;silicon (M1 or newer)</div>
     <div class="note">Unsigned build — first launch is right-click → <b>Open</b>. Requires Accessibility permission to send input.</div>
+    <div class="note sha" id="shaNote">
+      <span><b>SHA-256</b> · v1.9.0</span>
+      <code id="shaHex">83692a13e9ed2498c94238b1eb83290eeeab416178b227bf85ff1caac910e975</code>
+      <button class="shacopy" id="shaCopy">Copy</button>
+      <span class="shacmd">verify after download: <code>shasum -a 256 Teleprompter-Sync-System-1.9.0.dmg</code></span>
+    </div>
 
     <div class="whatsnew">
       <div class="wn-head">
@@ -596,12 +612,12 @@
         <a href="https://github.com/MaxFishman/teleprompter-sync-system/releases/latest">Release notes</a>
       </div>
       <ul>
-        <li><b>In-sync confidence</b> — live status, latency &amp; drift alerts</li>
-        <li><b>Session PIN</b> + arm / disarm</li>
-        <li><b>Auto-scroll</b> WPM crawl</li>
-        <li><b>Phone Remote</b> mode</li>
-        <li><b>Mini controller</b> + global hotkeys &amp; tray</li>
-        <li><b>Presets</b> &amp; custom key maps</li>
+        <li><b>Roll countdown</b> — 3·2·1, all rigs together</li>
+        <li><b>All-stop</b> panic button (Esc)</li>
+        <li><b>Identify rig</b> — beep + banner the laptop</li>
+        <li><b>Shortcut cheat-sheet</b> — press <span style="font-family:var(--mono)">?</span></li>
+        <li><b>In-sync confidence</b> — latency &amp; drift alerts</li>
+        <li><b>Phone Remote</b> + mini controller &amp; tray</li>
       </ul>
     </div>
   </div>
@@ -679,8 +695,22 @@
         var dl = (rel.assets || []).reduce(function(s, a){ return s + (a.download_count || 0); }, 0);
         var stat = document.getElementById('relStat');
         if (stat) stat.textContent = 'v' + ver + (dl ? ' · ' + dl.toLocaleString() + ' downloads' : '');
+        // The baked SHA-256 is for v1.9.0 — if a newer build has shipped, hide it
+        // rather than show a checksum that won't match the downloaded DMG.
+        var sha = document.getElementById('shaNote');
+        if (sha && ver !== '1.9.0') sha.style.display = 'none';
       })
       .catch(function(){});
+  })();
+
+  // copy the DMG checksum
+  (function(){
+    var btn = document.getElementById('shaCopy'), hex = document.getElementById('shaHex');
+    if (!btn || !hex) return;
+    btn.addEventListener('click', function(){
+      navigator.clipboard && navigator.clipboard.writeText(hex.textContent);
+      var t = btn.textContent; btn.textContent = 'Copied'; setTimeout(function(){ btn.textContent = t; }, 1200);
+    });
   })();
 </script>
 

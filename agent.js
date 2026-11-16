@@ -159,6 +159,17 @@ function mouse(m) {
   execFile(KEYPOST, args, () => {});
 }
 
+// --- identify: make THIS laptop announce itself (beep + banner) --------------
+// Lets an operator spot which physical machine a rig is, from the console.
+function identify() {
+  const label = String(NAME).replace(/["\\]/g, ''); // keep the AppleScript string safe
+  console.log(`identify → ${NAME}`);
+  execFile('osascript', [
+    '-e', 'beep 2',
+    '-e', `display notification "This is \\"${label}\\"" with title "TSS — Identify rig"`,
+  ], () => {});
+}
+
 // --- ack a received command so the host can show latency + "in sync" ---------
 function postAck(seq) {
   if (myId == null) return;
@@ -216,6 +227,7 @@ function connect() {
               SPEED = Math.max(1, Math.min(10, Math.round(Number(msg.value) || 1)));
               console.log(`speed → ${SPEED}`);
             }
+            else if (msg.type === 'identify' && Number(msg.id) === myId) { identify(); }
           } catch (_) {}
         }
       }
