@@ -96,8 +96,36 @@ function pidAlive(pid) {
   try { process.kill(pid, 0); return true; } catch (_) { return false; }
 }
 
+// --- injection rate backstop -------------------------------------------------
+// Hard cap on how fast we inject, so a command feedback-loop can NEVER flood the
+// macOS event queue and hang/crash the whole machine. This happens when the host
+// is also a rig and keys land in the controller console (frontmost app with no
+// explicit --target): the console re-transmits the synthetic keystroke, the agent
+// injects it again, and it spins as fast as the network allows. Real input — a
+// human at the keyboard, or auto-scroll — stays far below this ceiling; only a
+// runaway loop ever hits it, and it gets clamped instead of taking the Mac down.
+const INJECT_WINDOW_MS = 1000;
+const INJECT_MAX_PER_WINDOW = 20;
+let injectStamps = [];
+let throttleWarned = false;
+function injectAllowed() {
+  const now = Date.now();
+  while (injectStamps.length && now - injectStamps[0] > INJECT_WINDOW_MS) injectStamps.shift();
+  if (injectStamps.length >= INJECT_MAX_PER_WINDOW) {
+    if (!throttleWarned) {
+      throttleWarned = true;
+      process.stderr.write('inject rate capped — dropping excess commands (possible feedback loop)\n');
+    }
+    return false;
+  }
+  throttleWarned = false;
+  injectStamps.push(now);
+  return true;
+}
+
 // --- injection ---------------------------------------------------------------
 function inject(code) {
+  if (!injectAllowed()) return;  // safety: never let a feedback loop flood the OS
   // Line-scroll keys repeat SPEED times; jumps/toggles always fire once.
   const count = SCROLL_KEYS.has(code) ? SPEED : 1;
 

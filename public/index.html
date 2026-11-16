@@ -267,6 +267,25 @@
   .sm-meter .seg.on { background:linear-gradient(180deg,var(--amber-soft),var(--amber));
     box-shadow:0 0 9px var(--amber-glow); }
 
+  /* wheel-drives-rigs toggle (off by default — scrolling the window never moves
+     the prompters until the operator opts in) */
+  .wheeltog { -webkit-appearance:none; appearance:none; cursor:pointer; margin-top:10px;
+    width:100%; display:flex; align-items:center; gap:11px; padding:11px 14px;
+    border-radius:12px; border:1px solid var(--hair); border-bottom-color:#0c0f13;
+    background:linear-gradient(180deg,var(--panel-2),var(--panel-1)); color:var(--ink-dim);
+    font-family:var(--sans); font-size:13.5px; letter-spacing:.02em;
+    transition:color .12s, box-shadow .12s, border-color .12s; }
+  .wheeltog:hover { color:var(--ink); }
+  .wheeltog .wt-dot { flex:none; width:16px; height:16px; border-radius:50%;
+    background:#171c22; box-shadow:0 1px 2px #000 inset; transition:background .14s, box-shadow .14s; }
+  .wheeltog .wt-lab { font-weight:600; }
+  .wheeltog .wt-state { margin-left:auto; font-family:var(--mono); font-size:12.5px;
+    letter-spacing:.12em; color:var(--ink-faint); }
+  .wheeltog[aria-checked="true"] { color:var(--ink); border-color:var(--amber); }
+  .wheeltog[aria-checked="true"] .wt-dot { background:linear-gradient(180deg,var(--amber-soft),var(--amber));
+    box-shadow:0 0 9px var(--amber-glow); }
+  .wheeltog[aria-checked="true"] .wt-state { color:var(--amber-soft); }
+
   /* ---- side column -------------------------------------------------------- */
   .side { display:flex; flex-direction:column; gap:16px; }
   .card {
@@ -645,6 +664,36 @@
   .mi-learn { cursor:pointer; -webkit-appearance:none; appearance:none; font-family:var(--sans); font-size:12px; color:var(--ink-dim);
     background:#171c22; border:1px solid var(--hair); border-radius:8px; padding:8px 11px; }
   .mi-learn:hover { color:var(--amber-soft); box-shadow:0 0 0 1px var(--amber) inset; }
+
+  /* ===== desktop: fit the whole console in the window =======================
+     Lock the app to the viewport so every control is visible without scrolling
+     the page. (A scrolling page meant wheel/scroll gestures fought the rig
+     controls.) The big rocker flexes to fill leftover height; the side column
+     scrolls internally if its cards don't all fit. */
+  @media (min-width:861px){
+    html, body { height:100dvh; }
+    body { display:flex; flex-direction:column; overflow:hidden;
+      padding-top:max(14px, env(safe-area-inset-top));
+      padding-bottom:max(12px, env(safe-area-inset-bottom)); }
+    .rail { flex:none; margin-bottom:12px; }
+    .stage { flex:1 1 auto; min-height:0; align-items:stretch;
+      grid-template-rows:minmax(0,1fr); width:100%; }
+    .console { min-height:0; max-height:100%; grid-template-rows:minmax(0,1fr); }
+    .console > *, .keys { min-height:0; }
+    .keys { height:100%; }
+    .jog { min-height:0; }
+    .keys { gap:clamp(9px,1.3vw,15px); }
+    .rocker { flex:1 1 auto; min-height:0; }
+    .btn.lg { min-height:72px; }
+    .rowkeys { flex:none; }
+    .rowkeys .btn { min-height:clamp(52px,7vh,74px); }
+    .play { min-height:clamp(46px,6vh,62px); }
+    .side { min-height:0; overflow-y:auto; overflow-x:hidden; padding-right:4px; gap:13px; }
+    .warn { flex:none; margin:10px auto 0; }
+    /* keyboard legend + credit live in the "?" cheatsheet on desktop — dropping
+       them here reclaims the height so every control fits without a page scroll */
+    .legend, .credit { display:none; }
+  }
 </style>
 </head>
 <body>
@@ -768,6 +817,13 @@
             <div class="sm-meter" id="speedMeter"></div>
           </div>
         </div>
+
+        <button class="wheeltog" id="wheelTog" role="switch" aria-checked="false"
+          title="When ON, the mouse wheel over the console scrolls every rig. Off by default so scrolling the window never drives the prompters.">
+          <span class="wt-dot"></span>
+          <span class="wt-lab">Wheel&nbsp;drives&nbsp;rigs</span>
+          <span class="wt-state" id="wheelTogState">OFF</span>
+        </button>
       </div>
     </div>
 
@@ -855,7 +911,7 @@
         <div class="cheat-row"><span>Page up / down</span><kbd>PgUp&nbsp;&nbsp;PgDn</kbd></div>
         <div class="cheat-row"><span>Jump to top / bottom</span><kbd>Home&nbsp;&nbsp;End</kbd></div>
         <div class="cheat-row"><span>Play / pause</span><kbd>Space</kbd></div>
-        <div class="cheat-row"><span>Scroll (either direction)</span><kbd>mouse wheel</kbd></div>
+        <div class="cheat-row"><span>Scroll — wheel (when enabled)</span><kbd>mouse wheel</kbd></div>
         <div class="cheat-row"><span>Roll — 3·2·1 countdown</span><kbd>R</kbd></div>
         <div class="cheat-row"><span>All-stop — halt every rig</span><kbd>Esc</kbd></div>
       </div>
@@ -1021,9 +1077,28 @@
   // --- on-screen buttons ---
   btns.forEach(b => b.addEventListener('pointerdown', (e) => { e.preventDefault(); send(b.dataset.key); }));
 
-  // --- wheel ---
+  // --- wheel (real scroll tracking — OFF until the operator opts in) ---
+  // When off, spinning the mouse wheel over the console does nothing to the rigs,
+  // so scrolling the window to reach a control never drives the prompters.
+  let wheelTrack = localStorage.getItem('tss_wheel') === '1';
+  const wheelTog = document.getElementById('wheelTog');
+  const wheelTogState = document.getElementById('wheelTogState');
+  function renderWheelTog(){
+    wheelTog.setAttribute('aria-checked', wheelTrack ? 'true' : 'false');
+    wheelTogState.textContent = wheelTrack ? 'ON' : 'OFF';
+  }
+  wheelTog.addEventListener('click', () => {
+    wheelTrack = !wheelTrack;
+    localStorage.setItem('tss_wheel', wheelTrack ? '1' : '0');
+    renderWheelTog();
+    toast(wheelTrack ? 'Wheel scroll ON — the mouse wheel now drives every rig'
+                     : 'Wheel scroll OFF', wheelTrack ? 'ok' : 'warn');
+  });
+  renderWheelTog();
+
   let wheelLock = 0;
   addEventListener('wheel', (e) => {
+    if (!wheelTrack) return;           // scroll tracking disabled — don't transmit
     if (tourActive) return;            // tour is up — don't transmit
     const now = performance.now();
     if (now - wheelLock < 45) return;
