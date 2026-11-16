@@ -3,6 +3,24 @@
 All notable changes to **Teleprompter Sync System (TSS)** are recorded here.
 Format based on [Keep a Changelog](https://keepachangelog.com/). Dates are ISO (YYYY-MM-DD).
 
+## [1.11.3] - 2026-11-16
+
+### Added
+- **Guaranteed delivery for critical commands** — the hub keeps a one-shot critical command (All-stop,
+  Roll, Re-home) pending for 3s and re-delivers it until every rig acks, including to a rig that
+  (re)connects during that window — so a rig that was offline when All-stop fired still stops the moment
+  it returns. The agent dedupes by sequence number, so a re-delivered command never executes twice (safe
+  even for the non-idempotent Roll). (`server.js`, `agent.js`, `public/index.html`)
+- **Agent supervision** — if the per-rig agent crashes mid-show, the Electron host respawns it with
+  exponential backoff (0.5s→15s), so a rig recovers on its own instead of silently vanishing. A normal
+  stop/quit never triggers a respawn. The agent also installs uncaught-exception guards so a transient
+  fault logs instead of taking the rig down. (`electron/main.js`, `agent.js`)
+
+### Changed
+- **Lower-latency, dead-peer-aware sockets** — `TCP_NODELAY` (no Nagle delay on tiny command frames) and
+  OS keepalive on the hub and agent connections, backing up the application-level heartbeat/watchdog.
+  (`server.js`, `agent.js`)
+
 ## [1.11.2] - 2026-11-16
 
 ### Added

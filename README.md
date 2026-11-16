@@ -7,7 +7,7 @@
 No cloud. No subscription. No drift.
 
 [![macOS](https://img.shields.io/badge/macOS-11+-f4a836?labelColor=101317&logo=apple&logoColor=f4a836)](https://github.com/MaxFishman/teleprompter-sync-system/releases/latest)
-[![version](https://img.shields.io/badge/version-1.11.2-f4a836?labelColor=101317)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-1.11.3-f4a836?labelColor=101317)](CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-MIT-53e08a?labelColor=101317)](LICENSE)
 [![local only](https://img.shields.io/badge/network-local%20only-53e08a?labelColor=101317)](#how-it-works)
 [![built for](https://img.shields.io/badge/built%20for-live%20production-7e8893?labelColor=101317)](#why-tss)
