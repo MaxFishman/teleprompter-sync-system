@@ -56,8 +56,20 @@ const KEYCODES = {
   ArrowUp: 126, ArrowDown: 125, ArrowLeft: 123, ArrowRight: 124,
   PageUp: 116, PageDown: 121, Home: 115, End: 119,
   Space: 49, Enter: 36, Return: 36, Escape: 53, Tab: 48,
-  KeyJ: 38, KeyK: 40, KeyW: 13, KeyS: 1, KeyA: 0, KeyD: 2,
+  // letters
+  KeyA: 0, KeyB: 11, KeyC: 8, KeyD: 2, KeyE: 14, KeyF: 3, KeyG: 5, KeyH: 4, KeyI: 34,
+  KeyJ: 38, KeyK: 40, KeyL: 37, KeyM: 46, KeyN: 45, KeyO: 31, KeyP: 35, KeyQ: 12, KeyR: 15,
+  KeyS: 1, KeyT: 17, KeyU: 32, KeyV: 9, KeyW: 13, KeyX: 7, KeyY: 16, KeyZ: 6,
+  // digits + common punctuation
+  Digit1: 18, Digit2: 19, Digit3: 20, Digit4: 21, Digit5: 23, Digit6: 22, Digit7: 26, Digit8: 28, Digit9: 25, Digit0: 29,
+  Minus: 27, Equal: 24, BracketLeft: 33, BracketRight: 30, Semicolon: 41, Quote: 39, Comma: 43, Period: 47, Slash: 44, Backslash: 42,
+  // function keys
+  F1: 122, F2: 120, F3: 99, F4: 118, F5: 96, F6: 97, F7: 98, F8: 100, F9: 101, F10: 109, F11: 103, F12: 111,
 };
+
+// Optional per-app remap: logical code -> actual code to inject (e.g. Space -> KeyP).
+let KEYMAP = {};
+try { KEYMAP = JSON.parse(arg('--keymap', '') || '{}') || {}; } catch (_) { KEYMAP = {}; }
 
 // --- locate the optional keypost helper --------------------------------------
 const KEYPOST = arg('--keypost', '') || path.join(__dirname, 'keypost');
@@ -86,11 +98,12 @@ function pidAlive(pid) {
 
 // --- injection ---------------------------------------------------------------
 function inject(code) {
-  const kc = KEYCODES[code];
-  if (kc === undefined) return;
-
   // Line-scroll keys repeat SPEED times; jumps/toggles always fire once.
   const count = SCROLL_KEYS.has(code) ? SPEED : 1;
+
+  const actual = KEYMAP[code] || code; // optional per-app remap
+  const kc = KEYCODES[actual];
+  if (kc === undefined) return;
 
   // Best path: post straight to the target PID, no focus change.
   if (HAVE_KEYPOST && TARGET) {

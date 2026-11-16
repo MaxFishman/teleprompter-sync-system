@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>TSS Mini</title>
+<style>
+  :root{
+    --panel-1:#171b21; --panel-2:#1f242b; --well:#0c0e12; --hair:#2a3038;
+    --ink:#edeff2; --ink-dim:#7e8893; --amber:#f4a836; --amber-soft:#f6bd63; --amber-glow:rgba(244,168,54,.55);
+    --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:transparent;overflow:hidden}
+  body{ font-family:var(--sans); color:var(--ink); padding:9px; -webkit-user-select:none; }
+  .mini{ height:100%; border-radius:16px; border:1px solid var(--hair);
+    background:linear-gradient(180deg,var(--panel-2),var(--panel-1));
+    box-shadow:0 1px 0 rgba(255,255,255,.06) inset, 0 18px 36px -16px #000, 0 0 0 1px #000;
+    display:flex; flex-direction:column; gap:7px; padding:9px; }
+  .bar{ display:flex; align-items:center; gap:7px; -webkit-app-region:drag; cursor:grab; padding:2px 2px 0; }
+  .bar .g{ width:18px;height:18px;border-radius:5px;position:relative;flex:none;
+    background:radial-gradient(circle at 35% 30%,#2b323b,#10141a);border:1px solid var(--hair); }
+  .bar .g i{ position:absolute;left:4px;right:4px;height:1.8px;border-radius:2px;background:var(--amber);box-shadow:0 0 5px var(--amber-glow); }
+  .bar .g i:nth-child(1){top:5px} .bar .g i:nth-child(2){top:8.4px;opacity:.6} .bar .g i:nth-child(3){top:11.8px;opacity:.3}
+  .bar b{ font-family:var(--mono); font-size:11px; letter-spacing:.12em; color:var(--amber-soft); }
+  .bar .x{ margin-left:auto; -webkit-app-region:no-drag; cursor:pointer; width:20px;height:20px;border-radius:6px;
+    border:1px solid var(--hair); background:var(--well); color:var(--ink-dim); font-size:13px; line-height:18px; text-align:center; }
+  .btn{ -webkit-appearance:none;appearance:none;cursor:pointer; -webkit-app-region:no-drag; border:1px solid var(--hair);
+    border-radius:12px; background:linear-gradient(180deg,#242a32,#171b21); color:var(--ink);
+    display:flex;align-items:center;justify-content:center; user-select:none; transition:box-shadow .1s, transform .05s; }
+  .btn:active{ transform:translateY(1px) }
+  .btn.fire{ box-shadow:0 0 0 1px var(--amber) inset, 0 0 18px var(--amber-glow); color:var(--amber-soft); }
+  .rock{ flex:1; display:grid; grid-template-rows:1fr 1fr; gap:7px; min-height:0; }
+  .rock .btn .a{ font-size:34px; line-height:1; }
+  .play{ min-height:46px; font-size:14px; gap:8px; }
+  .play .tri{ width:0;height:0;border-left:11px solid var(--amber);border-top:7px solid transparent;border-bottom:7px solid transparent; }
+</style>
+</head>
+<body>
+  <div class="mini">
+    <div class="bar"><span class="g"><i></i><i></i><i></i></span><b>TSS</b><div class="x" id="close">✕</div></div>
+    <div class="rock">
+      <button class="btn" data-key="ArrowUp"><span class="a">▲</span></button>
+      <button class="btn" data-key="ArrowDown"><span class="a">▼</span></button>
+    </div>
+    <button class="btn play" data-key="Space"><span class="tri"></span>Play / pause</button>
+  </div>
+<script>
+  const q = new URLSearchParams(location.search);
+  const host = q.get('host') || '';
+  const pin = q.get('pin') || '';
+  function send(code, el){
+    fetch(host + '/cmd', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ type:'key', code, pin }) }).catch(() => {});
+    if (el){ el.classList.add('fire'); setTimeout(() => el.classList.remove('fire'), 130); }
+  }
+  document.querySelectorAll('[data-key]').forEach(b => b.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); send(b.dataset.key, b);
+  }));
+  document.getElementById('close').addEventListener('click', () => window.close());
+</script>
+</body>
+</html>

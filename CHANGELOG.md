@@ -3,6 +3,17 @@
 All notable changes to **Teleprompter Sync System (TSS)** are recorded here.
 Format based on [Keep a Changelog](https://keepachangelog.com/). Dates are ISO (YYYY-MM-DD).
 
+## [1.6.0] - 2026-11-16
+
+### Added
+- **Named presets** — save and load multiple show setups (target app, speed, PIN, host, key map)
+  from the launch screen. (`electron/launch.html`, `electron/main.js`)
+- **Custom key mapping** — remap any action (scroll, page, top/bottom, play) to the key your
+  teleprompter app actually uses; click-to-capture, saved per machine, applied by the agent.
+  (`agent.js`, `electron/launch.html`)
+- **Compact mini-controller** — a tiny always-on-top transport window (▲ / ▼ / play), opened from
+  the tray, the Window menu, or ⌘⇧M. (`electron/main.js`, `electron/mini.html`)
+
 ## [1.5.0] - 2026-11-16
 
 ### Added

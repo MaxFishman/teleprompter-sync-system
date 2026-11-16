@@ -82,6 +82,27 @@
   .note{ font-size:12px; color:var(--ink-faint); line-height:1.55; margin-top:16px }
   .note b{ color:var(--ink-dim); font-weight:600 }
   .err{ color:#ff8a86; font-size:12.5px; margin-top:12px; min-height:16px }
+
+  .presets{ display:flex; gap:7px; align-items:center; margin:18px 0 2px; flex-wrap:wrap; }
+  .presets select{ flex:1; min-width:120px; font-family:var(--sans); font-size:13px; color:var(--ink);
+    background:var(--well); border:1px solid var(--hair); border-radius:10px; padding:10px; }
+  .presets input{ flex:1; min-width:110px; font-size:13px; color:var(--ink); background:var(--well);
+    border:1px solid var(--hair); border-radius:10px; padding:10px; }
+  .mini-btn{ cursor:pointer; font-family:var(--sans); font-size:13px; color:var(--ink-dim);
+    background:var(--panel-2); border:1px solid var(--hair); border-radius:10px; padding:10px 12px; }
+  .mini-btn:hover{ color:var(--ink) }
+  .keymap{ margin-top:16px; border-top:1px solid var(--hair); padding-top:12px; }
+  .keymap summary{ cursor:pointer; font-size:13px; color:var(--ink-dim); outline:none }
+  .keymap summary:hover{ color:var(--ink) }
+  .keymap .hint{ font-size:12px; color:var(--ink-faint); margin:10px 0; line-height:1.5 }
+  .km-grid{ display:flex; flex-direction:column; gap:7px }
+  .km-row{ display:flex; align-items:center; gap:10px }
+  .km-row .kl{ flex:1; font-size:13px; color:var(--ink-dim) }
+  .km-key{ cursor:pointer; font-family:var(--mono); font-size:12px; color:var(--amber-soft); min-width:98px; text-align:center;
+    background:var(--well); border:1px solid var(--hair); border-radius:9px; padding:9px 10px }
+  .km-key.cap{ color:var(--ink); border-color:var(--amber); box-shadow:0 0 0 3px rgba(244,168,54,.14) }
+  #kmReset{ margin-top:11px; cursor:pointer; font-size:12px; color:var(--ink-dim); background:none; border:0; text-decoration:underline; padding:0 }
+
   [hidden]{ display:none !important }
 </style>
 </head>
@@ -105,6 +126,15 @@
         <button class="up-btn" id="upGet">Download &amp; install</button>
         <div class="up-prog" id="upProg" hidden><div class="up-bar" id="upBar"></div></div>
       </div>
+    </div>
+
+    <div class="presets">
+      <select id="presetSel"><option value="">Load a saved setup…</option></select>
+      <button type="button" id="presetDel" class="mini-btn" title="Delete selected">✕</button>
+    </div>
+    <div class="presets">
+      <input id="presetName" placeholder="Save current setup as…" autocomplete="off" />
+      <button type="button" id="presetSave" class="mini-btn">Save</button>
     </div>
 
     <div class="seg">
@@ -160,6 +190,13 @@
       <div class="note">Bring the teleprompter app to the front and leave it there — the host will drive it.</div>
     </form>
 
+    <details class="keymap">
+      <summary>Custom key mapping (advanced)</summary>
+      <div class="hint">If your teleprompter app uses different keys, remap them here — click a key, then press the replacement. Applies to this Mac's rig.</div>
+      <div class="km-grid" id="kmGrid"></div>
+      <button type="button" id="kmReset">Reset to defaults</button>
+    </details>
+
     <div class="err" id="err"></div>
     <datalist id="appList"></datalist>
     <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--hair);text-align:center;font-size:12px;color:var(--ink-faint)">Built by <b style="color:var(--ink-dim);font-weight:600">Max Fishman</b></div>
@@ -188,11 +225,81 @@
     } catch (_) { return ''; }
   }
 
+  // --- custom key mapping ---
+  const KM_ACTIONS = [
+    ['ArrowUp', 'Scroll up'], ['ArrowDown', 'Scroll down'],
+    ['PageUp', 'Page up'], ['PageDown', 'Page down'],
+    ['Home', 'Top'], ['End', 'Bottom'], ['Space', 'Play / pause'],
+  ];
+  let keymap = {};
+  function renderKeymap(){
+    $('kmGrid').innerHTML = KM_ACTIONS.map(([code, label]) =>
+      '<div class="km-row"><span class="kl">' + label + '</span><button type="button" class="km-key" data-km="' + code + '">' + (keymap[code] || code) + '</button></div>').join('');
+    $('kmGrid').querySelectorAll('.km-key').forEach((btn) => btn.addEventListener('click', () => captureKey(btn)));
+  }
+  function captureKey(btn){
+    const code = btn.dataset.km;
+    btn.classList.add('cap'); btn.textContent = 'press a key…';
+    function onKey(e){
+      e.preventDefault();
+      if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
+      if (e.code === code) delete keymap[code]; else keymap[code] = e.code;
+      cleanup();
+    }
+    function onOutside(e){ if (e.target !== btn) cleanup(); }
+    function cleanup(){ window.removeEventListener('keydown', onKey, true); window.removeEventListener('click', onOutside, true); renderKeymap(); saveKeymap(); }
+    window.addEventListener('keydown', onKey, true);
+    setTimeout(() => window.addEventListener('click', onOutside, true), 0);
+  }
+  function saveKeymap(){ if (window.tss && window.tss.setConfig) window.tss.setConfig({ keymap }); }
+  $('kmReset').addEventListener('click', () => { keymap = {}; renderKeymap(); saveKeymap(); });
+
+  // --- named presets ---
+  let presets = {};
+  function renderPresets(){
+    const names = Object.keys(presets).sort();
+    $('presetSel').innerHTML = '<option value="">Load a saved setup…</option>' +
+      names.map((n) => '<option value="' + n.replace(/"/g, '&quot;') + '">' + n + '</option>').join('');
+  }
+  function captureForm(){
+    const h = segHost.classList.contains('on');
+    return {
+      target: $(h ? 'hTarget' : 'jTarget').value.trim(),
+      speed: Number($(h ? 'hSpeed' : 'jSpeed').value) || 1,
+      pin: $(h ? 'hPin' : 'jPin').value.trim(),
+      host: $('jHost').value.trim(), name: $('jName').value.trim(),
+      keymap: { ...keymap },
+    };
+  }
+  function applyPreset(p){
+    if (!p) return;
+    if (p.target != null){ $('hTarget').value = p.target; $('jTarget').value = p.target; }
+    if (p.speed){ $('hSpeed').value = p.speed; $('jSpeed').value = p.speed; }
+    if (p.pin != null){ $('hPin').value = p.pin; $('jPin').value = p.pin; }
+    if (p.host) $('jHost').value = p.host;
+    if (p.name) $('jName').value = p.name;
+    keymap = p.keymap ? { ...p.keymap } : {}; renderKeymap();
+  }
+  $('presetSel').addEventListener('change', (e) => { if (presets[e.target.value]) applyPreset(presets[e.target.value]); });
+  $('presetSave').addEventListener('click', async () => {
+    const name = $('presetName').value.trim(); if (!name) return;
+    presets[name] = captureForm();
+    if (window.tss && window.tss.setConfig) await window.tss.setConfig({ presets });
+    $('presetName').value = ''; renderPresets(); $('presetSel').value = name;
+  });
+  $('presetDel').addEventListener('click', async () => {
+    const name = $('presetSel').value; if (!name || !presets[name]) return;
+    delete presets[name];
+    if (window.tss && window.tss.setConfig) await window.tss.setConfig({ presets });
+    renderPresets();
+  });
+  renderKeymap();
+
   hostForm.addEventListener('submit', async (e) => {
     e.preventDefault(); err.textContent = '';
     const btn = $('hostGo'); btn.disabled = true; btn.textContent = 'Starting…';
     try {
-      await window.tss.host({ target: $('hTarget').value.trim(), speed: Number($('hSpeed').value) || 1, pin: $('hPin').value.trim() });
+      await window.tss.host({ target: $('hTarget').value.trim(), speed: Number($('hSpeed').value) || 1, pin: $('hPin').value.trim(), keymap });
     } catch (ex) {
       err.textContent = 'Could not start hosting: ' + (ex && ex.message ? ex.message : ex);
       btn.disabled = false; btn.textContent = 'Start hosting';
@@ -208,7 +315,7 @@
       await window.tss.join({
         host, target: $('jTarget').value.trim(),
         speed: Number($('jSpeed').value) || 1, name: $('jName').value.trim() || 'backup',
-        pin: $('jPin').value.trim(),
+        pin: $('jPin').value.trim(), keymap,
       });
     } catch (ex) {
       err.textContent = 'Could not join: ' + (ex && ex.message ? ex.message : ex);
@@ -251,6 +358,8 @@
       if (cfg.name) $('jName').value = cfg.name;
       if (cfg.host) $('jHost').value = cfg.host;
       if (cfg.pin){ $('hPin').value = cfg.pin; $('jPin').value = cfg.pin; }
+      keymap = cfg.keymap || {}; renderKeymap();
+      presets = cfg.presets || {}; renderPresets();
     } catch (_) {}
     try {
       const apps = (window.tss && window.tss.listApps) ? await window.tss.listApps() : [];

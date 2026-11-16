@@ -23,6 +23,8 @@ let tray = null;
 let trayTimer = null;
 let sessionMode = null; // 'host' | 'join' | null
 let joinedQuery = {};   // query for re-opening joined.html
+let sessionPinValue = '';
+let miniWin = null;     // compact always-on-top transport
 
 // --- global hotkeys: drive scroll without focusing the console (host only) ----
 const HOTKEYS = {
@@ -64,7 +66,8 @@ function updateTray() {
   const menu = Menu.buildFromTemplate([
     { label: hosting ? `Hosting · ${rigs}` : (sessionActive ? 'Backup rig · connected' : 'Idle'), enabled: false },
     { type: 'separator' },
-    { label: 'Open console', enabled: sessionActive, click: () => { if (win) { win.show(); win.focus(); } } },
+    { label: 'Open console', enabled: sessionActive, click: () => openConsole() },
+    { label: miniWin ? 'Hide mini controller' : 'Mini controller', enabled: sessionActive, click: () => toggleMini() },
     ...(hosting ? [{ label: armedNow ? 'Disarm (block input)' : 'Arm (go live)', click: () => {
       hubRef.setArmed(!hubRef.armed); hubRef.broadcast({ type: 'armed', value: hubRef.armed }); updateTray();
     } }] : []),
@@ -80,9 +83,9 @@ function updateTray() {
 }
 
 async function leaveSession() {
-  sessionActive = false; sessionHost = ''; hubRef = null; sessionMode = null;
+  sessionActive = false; sessionHost = ''; hubRef = null; sessionMode = null; sessionPinValue = '';
   unregisterHotkeys();
-  stopAgent(); stopHub(); destroyHud();
+  stopAgent(); stopHub(); destroyHud(); destroyMini();
   updateTray();
   if (!win || win.isDestroyed()) createWindow();
   else await win.loadFile(path.join(__dirname, 'launch.html'));
@@ -172,7 +175,11 @@ function buildMenu() {
     ] }] : []),
     { label: 'Edit', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
     { label: 'View', submenu: [{ role: 'reload' }, { role: 'togglefullscreen' }, { type: 'separator' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }] },
-    { label: 'Window', submenu: [{ role: 'minimize' }, { role: 'zoom' }, { role: 'close' }] },
+    { label: 'Window', submenu: [
+      { label: 'Mini Controller', accelerator: 'CommandOrControl+Shift+M', click: () => toggleMini() },
+      { type: 'separator' },
+      { role: 'minimize' }, { role: 'zoom' }, { role: 'close' },
+    ] },
     { label: 'Help', submenu: [
       { label: 'TSS Website', click: () => shell.openExternal('https://maxfishman.github.io/teleprompter-sync-system/') },
       { label: 'Releases & Changelog', click: () => shell.openExternal(`https://github.com/${REPO}/releases`) },
@@ -189,6 +196,7 @@ function saveConfig(obj) {
   try { fs.mkdirSync(path.dirname(configPath()), { recursive: true }); fs.writeFileSync(configPath(), JSON.stringify(obj, null, 2)); } catch (_) {}
 }
 ipcMain.handle('get-config', () => loadConfig());
+ipcMain.handle('set-config', (_e, obj) => { const c = { ...loadConfig(), ...(obj || {}) }; saveConfig(c); return c; });
 ipcMain.handle('list-apps', () => {
   try {
     const out = execFileSync('osascript', [
@@ -275,6 +283,27 @@ function showHud() { if (!hudWin) createHud(); if (hudWin && win && !win.isDestr
 function hideHud() { if (hudWin) hudWin.hide(); }
 function destroyHud() { if (hudWin) { try { hudWin.destroy(); } catch (_) {} hudWin = null; } }
 
+// --- compact always-on-top mini controller -----------------------------------
+function createMini() {
+  if (miniWin) { miniWin.show(); miniWin.focus(); return; }
+  if (!sessionActive) return;
+  const W = 190, H = 300, M = 16;
+  const { workArea } = screen.getPrimaryDisplay();
+  miniWin = new BrowserWindow({
+    width: W, height: H,
+    x: workArea.x + workArea.width - W - M, y: workArea.y + workArea.height - H - M,
+    frame: false, transparent: true, resizable: false, skipTaskbar: true,
+    fullscreenable: false, maximizable: false, minimizable: false, hasShadow: false,
+    backgroundColor: '#00000000', webPreferences: { preload: path.join(__dirname, 'preload.js') },
+  });
+  miniWin.setAlwaysOnTop(true, 'floating');
+  miniWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  miniWin.loadFile(path.join(__dirname, 'mini.html'), { query: { host: sessionHost, pin: sessionPinValue } });
+  miniWin.on('closed', () => { miniWin = null; updateTray(); });
+}
+function destroyMini() { if (miniWin) { try { miniWin.destroy(); } catch (_) {} miniWin = null; } }
+function toggleMini() { if (miniWin) destroyMini(); else createMini(); updateTray(); }
+
 function stopAgent() { if (agentProc) { try { agentProc.kill(); } catch (_) {} agentProc = null; } }
 function stopHub() { if (hubServer) { try { hubServer.close(); } catch (_) {} hubServer = null; } }
 
@@ -307,25 +336,27 @@ app.on('window-all-closed', () => {
   if (!sessionActive) { unregisterHotkeys(); stopAgent(); stopHub(); destroyHud(); app.quit(); }
 });
 app.on('before-quit', () => {
-  unregisterHotkeys(); stopAgent(); stopHub(); destroyHud();
+  unregisterHotkeys(); stopAgent(); stopHub(); destroyHud(); destroyMini();
   if (trayTimer) clearInterval(trayTimer);
   if (tray) { try { tray.destroy(); } catch (_) {} tray = null; }
 });
 
 ipcMain.handle('host-session', async (_e, opts = {}) => {
   const pin = String(opts.pin || '').trim();
+  sessionPinValue = pin;
   const res = await startHub(Number(opts.port) || 3000, pin);
   hubServer = res.server; hubRef = res.hub;
   const args = ['--host', `http://localhost:${res.port}`, '--name', 'host', '--no-mouse', '--speed', String(opts.speed || 1)];
   if (opts.target) args.push('--target', opts.target);
   if (pin) args.push('--pin', pin);
+  if (opts.keymap && Object.keys(opts.keymap).length) args.push('--keymap', JSON.stringify(opts.keymap));
   spawnAgent(args);
   sessionActive = true; sessionMode = 'host';
   sessionHost = `http://localhost:${res.port}`;
   registerHotkeys();
   createHud();
   updateTray();
-  saveConfig({ ...loadConfig(), target: opts.target || '', speed: opts.speed || 1, pin });
+  saveConfig({ ...loadConfig(), target: opts.target || '', speed: opts.speed || 1, pin, keymap: opts.keymap || {} });
   const consoleUrl = sessionHost + (pin ? `/?pin=${encodeURIComponent(pin)}` : '');
   await win.loadURL(consoleUrl);
   return { port: res.port, primary: res.primary, urls: res.urls, keypost: !!keypostPath };
@@ -334,16 +365,18 @@ ipcMain.handle('host-session', async (_e, opts = {}) => {
 ipcMain.handle('join-session', async (_e, opts = {}) => {
   const host = opts.host;
   const pin = String(opts.pin || '').trim();
+  sessionPinValue = pin;
   const args = ['--host', host, '--name', opts.name || 'backup', '--speed', String(opts.speed || 1)];
   if (opts.target) args.push('--target', opts.target);
   if (pin) args.push('--pin', pin);
+  if (opts.keymap && Object.keys(opts.keymap).length) args.push('--keymap', JSON.stringify(opts.keymap));
   spawnAgent(args);
   sessionActive = true; sessionMode = 'join';
   sessionHost = host;
   joinedQuery = { host, target: opts.target || '', keypost: keypostPath ? '1' : '0' };
   createHud();
   updateTray();
-  saveConfig({ ...loadConfig(), host, target: opts.target || '', speed: opts.speed || 1, name: opts.name || 'backup', pin });
+  saveConfig({ ...loadConfig(), host, target: opts.target || '', speed: opts.speed || 1, name: opts.name || 'backup', pin, keymap: opts.keymap || {} });
   await win.loadFile(path.join(__dirname, 'joined.html'), { query: joinedQuery });
   return { ok: true, keypost: !!keypostPath };
 });

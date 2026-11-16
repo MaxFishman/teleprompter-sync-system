@@ -30,22 +30,22 @@ Server + agent + console. The operator must *know* both rigs are in sync.
 - [x] **Arm / disarm toggle** — server-enforced; blocks key/mouse when disarmed; console + tray toggle.
 - [x] **Join PIN** — host sets a code; agents & controllers must present it; server-enforced, with a console unlock gate.
 
-## Phase 2 — Desktop power (Electron)  ⏳ in progress
+## Phase 2 — Desktop power (Electron)  ✅ done
 - [x] **Global hotkeys** — ⌘⇧↑/↓/←/→/Space drive scroll with the console unfocused (host only).
 - [x] **Menu-bar / tray** — status + Open console / Arm / Leave / Updates / Quit; shows rig count.
 - [x] **Background hosting** — closing the window keeps the session live in the tray (macOS).
 - [x] **Remember window size/position** — bounds saved/restored via config.
 - [x] **Launch at login** (opt-in) — menu + tray checkbox (`setLoginItemSettings`).
 - [x] **Beta update channel** — opt-in checkbox; the updater then includes prereleases.
-- [ ] Compact "mini controller" mode.
+- [x] **Compact mini-controller** — tiny always-on-top transport (▲/▼ + play), tray/menu + ⌘⇧M.
 
-## Phase 3 — Controls  ⏳ in progress
+## Phase 3 — Controls  ✅ done
 - [x] **Auto-scroll (WPM crawl)** — timed scroll broadcast to all rigs; play/pause + rate (lines/min).
 - [x] **App picker** — datalist of running apps (osascript) on the launch screen.
 - [x] **Remember last settings** — target/speed/host/name/pin persisted and prefilled next launch.
 - [x] **Per-rig enable/disable** — toggle a rig out of the sync set (server-gated).
-- [ ] **Named presets** — multiple saved show configs (beyond last-used).
-- [ ] **Custom key maps** — per-target key bindings (apps differ).
+- [x] **Named presets** — save/load multiple show configs (target, speed, pin, host, keymap).
+- [x] **Custom key maps** — per-machine key remap (click-to-capture) passed to the agent.
 
 ## Phase 4 — Mobile  ✅ done
 - [x] **Remote mode** — phone-only full-screen controller: giant scroll rocker + Page/Play + speed +
@@ -63,4 +63,6 @@ Server + agent + console. The operator must *know* both rigs are in sync.
 - (planned) `armed` gate on the host; `/cmd` rejects when disarmed.
 - (planned) PIN: `/events?pin=` + `/cmd` require matching host PIN.
 
-_Last updated: 2026-11-16 — Phases 0, 1, 4 done; Phase 2 done except "mini controller" mode; Phase 3 done except named presets + custom key maps. Remaining: named presets, custom key maps, mini-controller mode, and (later) code signing + notarization._
+_Last updated: 2026-11-16 — **all feature phases (0–4) complete.** Only external/infra items remain:
+code signing + notarization (needs an Apple Developer ID) for silent auto-update and no Gatekeeper
+prompt. Everything else is shipped._

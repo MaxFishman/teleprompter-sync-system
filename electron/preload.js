@@ -10,5 +10,6 @@ contextBridge.exposeInMainWorld('tss', {
   onUpdateProgress: (cb) => ipcRenderer.on('update-progress', (_e, p) => cb(p)),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   getConfig: () => ipcRenderer.invoke('get-config'),
+  setConfig: (obj) => ipcRenderer.invoke('set-config', obj),
   listApps: () => ipcRenderer.invoke('list-apps'),
 });
