@@ -34,10 +34,10 @@ Server + agent + console. The operator must *know* both rigs are in sync.
 - [x] **Global hotkeys** — ⌘⇧↑/↓/←/→/Space drive scroll with the console unfocused (host only).
 - [x] **Menu-bar / tray** — status + Open console / Arm / Leave / Updates / Quit; shows rig count.
 - [x] **Background hosting** — closing the window keeps the session live in the tray (macOS).
-- [ ] Remember window size/position.
-- [ ] Launch at login (opt-in).
+- [x] **Remember window size/position** — bounds saved/restored via config.
+- [x] **Launch at login** (opt-in) — menu + tray checkbox (`setLoginItemSettings`).
+- [x] **Beta update channel** — opt-in checkbox; the updater then includes prereleases.
 - [ ] Compact "mini controller" mode.
-- [ ] Beta update channel.
 
 ## Phase 3 — Controls  ⏳ in progress
 - [x] **Auto-scroll (WPM crawl)** — timed scroll broadcast to all rigs; play/pause + rate (lines/min).
@@ -47,8 +47,9 @@ Server + agent + console. The operator must *know* both rigs are in sync.
 - [ ] **Named presets** — multiple saved show configs (beyond last-used).
 - [ ] **Custom key maps** — per-target key bindings (apps differ).
 
-## Phase 4 — Mobile
-- [ ] **Remote mode** — phone-only full-screen view: giant scroll rocker + play/pause + speed.
+## Phase 4 — Mobile  ✅ done
+- [x] **Remote mode** — phone-only full-screen controller: giant scroll rocker + Page/Play + speed +
+  auto-scroll; auto-opens on phone widths, toggle on desktop.
 
 ## Later / needs external
 - [ ] Code signing + notarization → silent auto-update + no Gatekeeper prompt (needs Apple Developer ID).
@@ -62,4 +63,4 @@ Server + agent + console. The operator must *know* both rigs are in sync.
 - (planned) `armed` gate on the host; `/cmd` rejects when disarmed.
 - (planned) PIN: `/events?pin=` + `/cmd` require matching host PIN.
 
-_Last updated: 2026-11-16 — Phases 0 & 1 done; Phase 2 hotkeys+tray+background done; Phase 3 auto-scroll + app-picker + remember-settings + per-rig enable done. Next: named presets, custom key maps, then Phase 2 leftovers (window state, launch-at-login, mini mode) and Phase 4 (phone Remote mode)._
+_Last updated: 2026-11-16 — Phases 0, 1, 4 done; Phase 2 done except "mini controller" mode; Phase 3 done except named presets + custom key maps. Remaining: named presets, custom key maps, mini-controller mode, and (later) code signing + notarization._

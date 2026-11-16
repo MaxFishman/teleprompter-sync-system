@@ -3,6 +3,18 @@
 All notable changes to **Teleprompter Sync System (TSS)** are recorded here.
 Format based on [Keep a Changelog](https://keepachangelog.com/). Dates are ISO (YYYY-MM-DD).
 
+## [1.5.0] - 2026-11-16
+
+### Added
+- **Remote mode** — a phone-first full-screen controller: a giant scroll up/down rocker, Page
+  Up/Down, Play/Pause, speed, and auto-scroll. Opens automatically on phone-width screens; there's
+  a **⛶ Remote** toggle on desktop too. (`public/index.html`)
+- **Launch at login** (opt-in) — from the app menu or the tray. (`electron/main.js`)
+- **Beta update channel** (opt-in) — the in-app updater then includes prereleases. (`electron/main.js`)
+
+### Changed
+- The app **remembers its window size and position** between launches. (`electron/main.js`)
+
 ## [1.4.0] - 2026-11-16
 
 ### Added

@@ -70,6 +70,8 @@ function updateTray() {
     } }] : []),
     { label: 'Leave session', enabled: sessionActive, click: () => leaveSession() },
     { type: 'separator' },
+    { label: 'Open at Login', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin,
+      click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked }) },
     { label: 'Check for Updates…', click: checkUpdatesInteractive },
     { label: 'Quit', click: () => app.quit() },
   ]);
@@ -115,12 +117,15 @@ function isNewer(current, latest) {
 }
 async function getUpdate() {
   try {
-    const rel = await httpsJSON(`https://api.github.com/repos/${REPO}/releases/latest`);
+    const beta = !!loadConfig().beta;
+    const data = await httpsJSON(`https://api.github.com/repos/${REPO}/releases${beta ? '?per_page=5' : '/latest'}`);
+    const rel = Array.isArray(data) ? (data.find((r) => !r.draft) || data[0]) : data; // beta: newest incl. prereleases
+    if (!rel) throw new Error('no release');
     const latest = (rel.tag_name || '').replace(/^v/, '');
     const current = app.getVersion();
     const dmg = (rel.assets || []).find((a) => /\.dmg$/i.test(a.name));
     return { current, latest, newer: !!latest && isNewer(current, latest), notes: (rel.body || '').slice(0, 4000),
-      page: rel.html_url, dmg: dmg ? dmg.browser_download_url : rel.html_url };
+      page: rel.html_url, dmg: dmg ? dmg.browser_download_url : rel.html_url, beta };
   } catch (e) { return { current: app.getVersion(), latest: null, newer: false, error: String(e.message || e) }; }
 }
 function downloadFile(url, dest, onProgress, redirects = 0) {
@@ -156,6 +161,10 @@ function buildMenu() {
     ...(isMac ? [{ label: app.name, submenu: [
       { role: 'about' },
       { label: 'Check for Updates…', click: checkUpdatesInteractive },
+      { label: 'Open at Login', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin,
+        click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked }) },
+      { label: 'Use beta updates', type: 'checkbox', checked: !!loadConfig().beta,
+        click: (item) => { const c = loadConfig(); c.beta = item.checked; saveConfig(c); } },
       { type: 'separator' },
       { role: 'services' }, { type: 'separator' },
       { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' },
@@ -221,13 +230,22 @@ function resolveKeypost() {
 }
 
 function createWindow() {
+  const b = loadConfig().winBounds || {};
   win = new BrowserWindow({
-    width: 1200, height: 880, minWidth: 380, minHeight: 600,
+    width: b.width || 1200, height: b.height || 880,
+    x: b.x != null ? b.x : undefined, y: b.y != null ? b.y : undefined,
+    minWidth: 380, minHeight: 600,
     backgroundColor: '#101317',
     title: 'Teleprompter Sync System',
     webPreferences: { preload: path.join(__dirname, 'preload.js') },
   });
   win.loadFile(path.join(__dirname, 'launch.html'));
+  // Remember window size/position (debounced).
+  let saveT = null;
+  const saveBounds = () => { clearTimeout(saveT); saveT = setTimeout(() => {
+    if (win && !win.isDestroyed()) { const cfg = loadConfig(); cfg.winBounds = win.getBounds(); saveConfig(cfg); }
+  }, 400); };
+  win.on('resize', saveBounds); win.on('move', saveBounds);
   // Show the floating HUD whenever the console loses focus during a live session.
   win.on('blur', () => { if (sessionActive) showHud(); });
   win.on('focus', hideHud);
