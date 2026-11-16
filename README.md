@@ -37,6 +37,8 @@ Every serious live broadcast runs a **backup teleprompter** in case the primary 
 | 🎚️ **Per-rig speed trim** | Each rig can scroll a little faster or slower so two different teleprompter apps stay aligned. |
 | 📱 **Join from a phone or tablet** | Scan a QR code to turn any device into a wireless controller. |
 | 🛰️ **Local network only** | Everything stays on your Wi-Fi/LAN. No accounts, no servers, no data leaves the room. |
+| ✅ **Live sync confidence** | Every rig acknowledges each command — IN SYNC / DRIFT status, per-rig latency, and connect/drop alerts. |
+| 🔐 **Locked & armed** | A session PIN plus arm/disarm keep random devices and stray keys off air. |
 
 ## A closer look
 
@@ -73,9 +75,38 @@ A scannable **QR** and copyable URL put the full controller on any device on the
 When the console isn't focused, a floating widget shows link status, rig count, and a live command ticker. Click it to jump back.
 
 ### Host or join in one tap
-<img src="assets/features/launch.png" alt="Host / Join launch screen" width="380" />
+<img src="assets/features/presets.png" alt="Host / Join launch screen with presets and key mapping" width="380" />
 
-The native app bundles the hub, agent, and injector. Pick a role and go — no Terminal, no config files.
+The native app bundles the hub, agent, and injector. Pick a role and go — no Terminal, no config files. Save **presets**, pick your teleprompter app from a list, or remap keys if it uses different ones.
+
+## Production-grade control
+
+Everything a live show needs to trust the backup and run it from anywhere.
+
+### Know you're in sync
+<img src="assets/features/sync.png" alt="Live in-sync status, latency, armed state" width="620" />
+
+Every rig acknowledges each command. The header shows a live **IN SYNC / SYNCING / DRIFT** state, **per-rig latency**, and connect/drop alerts — so you always know both rigs agree.
+
+### Lock it down
+<img src="assets/features/pin.png" alt="Session PIN unlock screen" width="420" />
+
+Set a **session PIN** so only trusted devices can control the show, and **Arm / Disarm** to stop stray keys ever reaching air.
+
+### Auto-scroll
+<img src="assets/features/auto.png" alt="Auto-scroll control" width="440" />
+
+A steady, adjustable WPM-style crawl pushed to every rig — play or pause with one tap.
+
+### Phone Remote mode
+<img src="assets/features/remote.png" alt="Phone Remote mode" width="300" />
+
+Scan the QR and your phone becomes a full-screen rocker — scroll, page, play, and speed, sized for a thumb.
+
+### Always within reach
+<img src="assets/features/mini.png" alt="Mini controller" width="190" />
+
+A tiny always-on-top transport (**⌘⇧M**), **global hotkeys** that work with the console unfocused, and a **menu-bar tray** that keeps hosting in the background.
 
 ## Quick start
 

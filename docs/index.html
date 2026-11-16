@@ -196,11 +196,36 @@
   }
   @supports (animation-timeline: view()){
     @media (prefers-reduced-motion: no-preference){
-      .feat .cell, .tour .tourcard, .steps .step, .band{
+      .feat .cell, .tour .tourcard, .steps .step, .band, .gallery, .stickywrap{
         animation:sr-in linear both; animation-timeline:view(); animation-range:entry 0% cover 26%; }
       .shot{ animation:shot-in linear both; animation-timeline:view(); animation-range:entry 0% cover 42%; }
     }
   }
+
+  /* section-dot navigator */
+  .dots{ position:fixed; right:18px; top:50%; transform:translateY(-50%); z-index:55;
+    display:flex; flex-direction:column; gap:13px; }
+  @media (max-width:860px){ .dots{ display:none; } }
+  .dots a{ width:9px; height:9px; border-radius:50%; background:#2a3038; transition:.2s; }
+  .dots a:hover{ background:var(--ink-dim); }
+  .dots a.active{ background:var(--amber); box-shadow:0 0 10px var(--amber-glow); transform:scale(1.3); }
+
+  /* horizontal scroll-snap gallery */
+  .gallery{ margin-top:26px; display:grid; grid-auto-flow:column; grid-auto-columns:min(82%,360px);
+    gap:18px; overflow-x:auto; scroll-snap-type:x proximity; padding:6px 2px 16px; scrollbar-width:thin; }
+  .gallery::-webkit-scrollbar{ height:8px; }
+  .gallery::-webkit-scrollbar-thumb{ background:var(--hair); border-radius:4px; }
+  .gcard{ scroll-snap-align:center; border:1px solid var(--hair); border-radius:16px; overflow:hidden;
+    background:linear-gradient(180deg,var(--panel),var(--bg-2)); display:flex; flex-direction:column; }
+  .gcard .gimg{ background:radial-gradient(120% 120% at 50% 0%, #161b22 0%, var(--well) 70%);
+    border-bottom:1px solid var(--hair); padding:22px; min-height:206px; display:flex; align-items:center; justify-content:center; }
+  .gcard .gimg img{ max-width:100%; max-height:264px; height:auto; display:block; border-radius:10px; box-shadow:0 20px 40px -24px #000; }
+  .gcard .gimg.plain img{ box-shadow:none; }
+  .gcard figcaption{ padding:17px 19px 20px; }
+  .gcard figcaption .k{ font-family:var(--mono); font-size:11px; letter-spacing:.14em; color:var(--amber-soft); display:block; margin-bottom:8px; }
+  .gcard figcaption h3{ font-size:16px; font-weight:650; margin-bottom:5px; }
+  .gcard figcaption p{ font-size:13.5px; color:var(--ink-dim); }
+  .swipe{ font-family:var(--mono); font-size:12px; color:var(--ink-faint); letter-spacing:.04em; }
 
   footer{ border-top:1px solid var(--hair); padding:34px 0 48px; color:var(--ink-faint); font-size:13px; }
   .foot{ display:flex; flex-wrap:wrap; gap:14px 22px; align-items:center; }
@@ -211,6 +236,15 @@
 <body>
 
 <div class="scroll-progress" aria-hidden="true"></div>
+
+<nav class="dots" id="dots" aria-label="Section navigation">
+  <a href="#top" data-sec="top" title="Top"></a>
+  <a href="#features" data-sec="features" title="Features"></a>
+  <a href="#tour" data-sec="tour" title="A closer look"></a>
+  <a href="#pro" data-sec="pro" title="Production-grade"></a>
+  <a href="#how" data-sec="how" title="How it works"></a>
+  <a href="#get" data-sec="get" title="Download"></a>
+</nav>
 
 <nav id="nav"><div class="wrap nav">
   <a class="brand" href="#top">
@@ -343,6 +377,38 @@
   </div>
 </div></section>
 
+<section id="pro"><div class="wrap">
+  <div class="lbl">PRODUCTION-GRADE</div>
+  <h2>Built for the room.</h2>
+  <p class="sub">The confidence and control a live show needs — know every rig is in step, lock it down, and drive it from anywhere. <span class="swipe">swipe →</span></p>
+  <div class="gallery">
+    <figure class="gcard">
+      <div class="gimg"><img src="features/sync.png" alt="Live in-sync status, latency and armed state" loading="lazy" /></div>
+      <figcaption><span class="k">IN SYNC</span><h3>Confidence at a glance</h3><p>Every rig acknowledges each command. A live <b>IN SYNC / DRIFT</b> readout, per-rig latency, and connect/drop alerts — you always know both rigs agree.</p></figcaption>
+    </figure>
+    <figure class="gcard">
+      <div class="gimg plain"><img src="features/pin.png" alt="Session PIN unlock screen" loading="lazy" /></div>
+      <figcaption><span class="k">SECURE</span><h3>Lock the session</h3><p>Set a <b>PIN</b> so only trusted devices can control the show, and <b>Arm / Disarm</b> to stop stray keys ever reaching air.</p></figcaption>
+    </figure>
+    <figure class="gcard">
+      <div class="gimg"><img src="features/auto.png" alt="Auto-scroll control" loading="lazy" /></div>
+      <figcaption><span class="k">AUTO-SCROLL</span><h3>Hands-free crawl</h3><p>A steady, adjustable WPM-style scroll pushed to every rig — play or pause with one tap.</p></figcaption>
+    </figure>
+    <figure class="gcard">
+      <div class="gimg plain"><img src="features/remote.png" alt="Phone Remote mode" loading="lazy" /></div>
+      <figcaption><span class="k">PHONE REMOTE</span><h3>Drive from your pocket</h3><p>Scan the QR and your phone becomes a full-screen rocker — scroll, page, play, and speed, sized for a thumb.</p></figcaption>
+    </figure>
+    <figure class="gcard">
+      <div class="gimg plain"><img src="features/mini.png" alt="Mini controller and tray" loading="lazy" /></div>
+      <figcaption><span class="k">ALWAYS IN REACH</span><h3>Tray, hotkeys &amp; mini</h3><p>Global hotkeys, a menu-bar tray that hosts in the background, and a tiny always-on-top transport (⌘⇧M).</p></figcaption>
+    </figure>
+    <figure class="gcard">
+      <div class="gimg plain"><img src="features/presets.png" alt="Presets and custom key mapping" loading="lazy" /></div>
+      <figcaption><span class="k">SET UP ONCE</span><h3>Presets &amp; key maps</h3><p>Save show presets and remap any action to the keys your teleprompter app actually uses.</p></figcaption>
+    </figure>
+  </div>
+</div></section>
+
 <section><div class="wrap">
   <div class="lbl">NO TERMINAL, NO SETUP</div>
   <h2>Host or join in one tap.</h2>
@@ -379,7 +445,7 @@
   </div>
 </div></section>
 
-<section><div class="wrap">
+<section id="get"><div class="wrap">
   <div class="band">
     <div class="lbl" style="display:block;margin-bottom:8px">READY WHEN THE PRIMARY ISN'T</div>
     <h2>Keep the backup in lockstep.</h2>
@@ -422,6 +488,22 @@
     fit();
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
     setTimeout(fit, 300);
+  })();
+
+  // section-dot navigator — highlight the section currently in view
+  (function(){
+    var dots = document.querySelectorAll('.dots a');
+    if (!dots.length || !('IntersectionObserver' in window)) return;
+    var obs = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if (e.isIntersecting){
+          dots.forEach(function(a){ a.classList.toggle('active', a.dataset.sec === e.target.id); });
+        }
+      });
+    }, { rootMargin: '-45% 0px -45% 0px', threshold: 0 });
+    ['top','features','tour','pro','how','get'].forEach(function(id){
+      var el = document.getElementById(id); if (el) obs.observe(el);
+    });
   })();
 </script>
 
