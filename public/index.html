@@ -747,6 +747,7 @@
     <button class="cmdbtn" id="cmdBtn">Go view-only</button>
     <button class="railbtn" id="readyBtn" title="Pre-show readiness check">✓&nbsp;Ready?</button>
     <button class="railbtn" id="midiBtn" title="Map a MIDI controller to TSS">🎹&nbsp;MIDI</button>
+    <button class="railbtn" id="logBtn" title="Download this session's log — connects, drops, drift, all-stops, re-homes">⤓&nbsp;Log</button>
     <button class="helpbtn" id="helpBtn" title="Keyboard shortcuts  ·  press ?">?</button>
     <button class="remotebtn" id="remoteBtn">⛶ Remote</button>
   </div>
@@ -1384,6 +1385,56 @@
       else if (j && j.disarmed){ toast('Disarmed — not sent', 'warn'); }
       else { toast('Re-home not sent', 'warn'); }
     } catch (_) { toast('Re-home failed', 'warn'); }
+  });
+
+  // --- session log export: download a readable timeline of the show ---
+  const logBtn = document.getElementById('logBtn');
+  function p2(n){ return String(n).padStart(2, '0'); }
+  function hms(iso){ const d = new Date(iso); return p2(d.getHours()) + ':' + p2(d.getMinutes()) + ':' + p2(d.getSeconds()); }
+  function durMs(ms){ const s = Math.floor(ms / 1000); return Math.floor(s / 3600) + 'h ' + p2(Math.floor((s % 3600) / 60)) + 'm ' + p2(s % 60) + 's'; }
+  function describeEv(e){
+    switch (e.ev){
+      case 'session-start': return 'Session started';
+      case 'connect':    return 'Rig connected: ' + e.name + (e.ip ? ' (' + e.ip + ')' : '') + ' — ' + e.rigs + ' online';
+      case 'reconnect':  return 'Rig reconnected: ' + e.name + ' — flagged OUT OF SYNC';
+      case 'disconnect': return 'Rig dropped: ' + e.name + ' (' + e.reason + ') — ' + e.rigs + ' online';
+      case 'arm':        return (e.armed ? 'ARMED' : 'DISARMED') + (e.by ? ' by ' + e.by : '');
+      case 'critical':   return 'CRITICAL — ' + (e.code === 'Home' ? 'Re-home' : e.code === 'Space' ? 'All-stop / Roll (Space)' : e.code) + (e.by ? ' by ' + e.by : '');
+      case 'rehome':     return 'RE-HOME — all rigs to top' + (e.by ? ' by ' + e.by : '');
+      case 'speed':      return 'Speed → ' + e.value + ' (' + e.id + ')' + (e.by ? ' by ' + e.by : '');
+      case 'handoff':    return (e.action === 'take' ? 'Control taken' : 'Control released') + (e.name ? ' by ' + e.name : '');
+      case 'rig':        return 'Rig #' + e.id + ' ' + (e.enabled ? 'enabled' : 'disabled') + (e.by ? ' by ' + e.by : '');
+      case 'denied':     return 'Denied (' + e.reason + ') — ' + (e.what || '') + ' ' + (e.ip || '');
+      default:           return e.ev + ' ' + JSON.stringify(e);
+    }
+  }
+  function formatLog(s){
+    const L = [];
+    L.push('TELEPROMPTER SYNC SYSTEM — session log');
+    L.push('Started:  ' + new Date(s.startedAt).toLocaleString());
+    L.push('Exported: ' + new Date(s.exportedAt).toLocaleString());
+    L.push('Duration: ' + durMs(s.uptimeMs));
+    L.push('Commands: ' + s.counts.key + ' key · ' + s.counts.mouse + ' mouse · ' + s.counts.speed + ' speed · ' + s.counts.critical + ' critical');
+    L.push('Rigs now: ' + s.rigsNow);
+    L.push('');
+    L.push('TIMELINE'); L.push('--------');
+    for (const e of s.events) L.push('[' + hms(e.t) + ']  ' + describeEv(e));
+    L.push('');
+    return L.join('\n');
+  }
+  logBtn.addEventListener('click', async () => {
+    logBtn.classList.add('fire'); setTimeout(() => logBtn.classList.remove('fire'), 160);
+    let snap;
+    try { const r = await fetch('/log'); snap = await r.json(); }
+    catch (_){ toast('Could not fetch the session log', 'warn'); return; }
+    const d = new Date();
+    const stamp = '' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + '-' + p2(d.getHours()) + p2(d.getMinutes());
+    const blob = new Blob([formatLog(snap)], { type:'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'tss-session-' + stamp + '.txt';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast('Session log downloaded (' + snap.events.length + ' events)', 'ok');
   });
 
   function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }

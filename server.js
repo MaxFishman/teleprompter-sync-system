@@ -41,6 +41,17 @@ function createHub() {
   const STALE_REAP_MS = 9000; // reap an agent that hasn't acked a heartbeat in this long (half-open socket)
   let pendingCrit = [];       // critical one-shot commands re-delivered until acked
   const CRIT_TTL = 3000;      // ms to keep re-delivering a critical command (and to a rig that reconnects)
+  // Session log — a forensic timeline of the show (connects, drops, drift, arm,
+  // all-stop/roll/re-home, handoff) the operator can export afterwards.
+  const startedAt = Date.now();
+  const sessionLog = [];
+  const LOG_MAX = 5000;
+  const counts = { key: 0, mouse: 0, speed: 0, critical: 0 };
+  function logEvent(ev, data) {
+    sessionLog.push({ t: new Date().toISOString(), ev, ...(data || {}) });
+    if (sessionLog.length > LOG_MAX) sessionLog.shift();
+  }
+  logEvent('session-start', { startedAt: new Date(startedAt).toISOString() });
 
   function broadcast(payload) {
     payload.seq = ++cmdSeq; latestSeq = cmdSeq;
@@ -50,7 +61,7 @@ function createHub() {
     const gated = payload.type === 'key' || payload.type === 'mouse'; // skip disabled rigs
     for (const agent of agents.values()) {
       if (gated && agent.enabled === false) continue;
-      try { agent.res.write(line); } catch (_) { removeAgent(agent.id); }
+      try { agent.res.write(line); } catch (_) { removeAgent(agent.id, "write-error"); }
     }
     for (const res of observers) {
       try { res.write(line); } catch (_) { observers.delete(res); }
@@ -72,7 +83,7 @@ function createHub() {
       for (const agent of agents.values()) {
         if (p.gated && agent.enabled === false) continue;
         if ((agent.lastAckSeq || 0) >= p.seq) continue;   // this rig already has it
-        try { agent.res.write(p.line); } catch (_) { removeAgent(agent.id); }
+        try { agent.res.write(p.line); } catch (_) { removeAgent(agent.id, "write-error"); }
       }
     }
   }, 400);
@@ -85,12 +96,13 @@ function createHub() {
     a.lastAckAt = Date.now();
     const t = sentAt.get(seq); if (t) a.latency = Date.now() - t;
   }
-  function removeAgent(id) {
+  function removeAgent(id, reason) {
     const a = agents.get(id);
     if (a) {
       agents.delete(id);
       try { a.res.end(); } catch (_) {}
       console.log(`[-] agent #${id} (${a.name}) disconnected — ${agents.size} connected`);
+      logEvent('disconnect', { id, name: a.name, reason: reason || 'closed', rigs: agents.size });
     }
   }
   // Heartbeat doubles as a latency probe: a data ping every 2s that agents ack.
@@ -105,7 +117,7 @@ function createHub() {
       const last = a.lastAckAt || a.connectedAt || now;
       if (now - last > STALE_REAP_MS) {
         console.log(`[-] agent #${a.id} (${a.name}) reaped — no ack for ${Math.round((now - last) / 1000)}s`);
-        removeAgent(a.id);
+        removeAgent(a.id, 'reaped');
       }
     }
     for (const res of observers) { try { res.write(`: k\n\n`); } catch (_) { observers.delete(res); } }
@@ -142,6 +154,19 @@ function createHub() {
       if (!c) { commander = { id, name: name || 'controller', at: Date.now() }; return true; }
       if (c.id === id) { commander.at = Date.now(); return true; }
       return false;
+    },
+    // Session log / export.
+    logEvent,
+    countCmd(type) { if (type in counts) counts[type]++; },
+    logSnapshot() {
+      return {
+        startedAt: new Date(startedAt).toISOString(),
+        exportedAt: new Date().toISOString(),
+        uptimeMs: Date.now() - startedAt,
+        rigsNow: agents.size,
+        counts: { ...counts },
+        events: sessionLog.slice(),
+      };
     },
   };
 }
@@ -222,7 +247,7 @@ function start(opts = {}) {
         return;
       }
 
-      if (PIN && url.searchParams.get('pin') !== PIN) { res.end(`data: ${JSON.stringify({ type: 'denied', reason: 'pin' })}\n\n`); return; }
+      if (PIN && url.searchParams.get('pin') !== PIN) { hub.logEvent('denied', { what: 'rig', reason: 'pin', ip }); res.end(`data: ${JSON.stringify({ type: 'denied', reason: 'pin' })}\n\n`); return; }
       const id = hub.nextAgentId;
       const name = url.searchParams.get('name') || `agent-${id}`;
       const speed = Math.max(1, Math.min(10, Math.round(Number(url.searchParams.get('speed')) || 1)));
@@ -233,6 +258,7 @@ function start(opts = {}) {
       res.write(`data: ${JSON.stringify({ type: 'hello', id })}\n\n`);
       hub.agents.set(id, { id, name, ip, res, speed, cid, enabled: true, desynced, connectedAt: Date.now() });
       console.log(`[+] agent #${id} (${name}) from ${ip} — ${hub.agents.size} connected${desynced ? ' (reconnected — flagged out of sync)' : ''}`);
+      hub.logEvent(desynced ? 'reconnect' : 'connect', { id, name, ip, rigs: hub.agents.size, outOfSync: desynced || undefined });
       hub.replayCrit(res);   // deliver any still-pending critical command (e.g. a recent All-stop)
       req.on('close', () => hub.removeAgent(id));
       return;
@@ -269,6 +295,10 @@ function start(opts = {}) {
         else { const a = hub.agents.get(Number(cmd.id)); if (a) a.speed = v; }
       }
       hub.broadcast(cmd);
+      // Session log: count every command; record the show-significant ones in full.
+      if (cmd.type === 'key' || cmd.type === 'mouse' || cmd.type === 'speed') hub.countCmd(cmd.type);
+      if (cmd.crit) { hub.countCmd('critical'); hub.logEvent('critical', { code: cmd.code, by: cmd.cname || undefined }); }
+      else if (cmd.type === 'speed') hub.logEvent('speed', { id: cmd.id, value: cmd.value, by: cmd.cname || undefined });
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify({ ok: true, delivered: hub.agents.size, seq: hub.latestSeq }));
       return;
@@ -290,6 +320,7 @@ function start(opts = {}) {
       let a; try { a = JSON.parse(body); } catch (_) { res.writeHead(400).end('bad json'); return; }
       if (PIN && a.pin !== PIN) { res.writeHead(403, { 'Access-Control-Allow-Origin': '*' }).end('{"ok":false,"pin":true}'); return; }
       hub.setArmed(!!a.armed);
+      hub.logEvent('arm', { armed: hub.armed, by: a.cname || undefined });
       hub.broadcast({ type: 'armed', value: hub.armed });
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify({ ok: true, armed: hub.armed }));
@@ -302,6 +333,7 @@ function start(opts = {}) {
       let a; try { a = JSON.parse(body); } catch (_) { res.writeHead(400).end('bad json'); return; }
       if (PIN && a.pin !== PIN) { res.writeHead(403, { 'Access-Control-Allow-Origin': '*' }).end('{"ok":false,"pin":true}'); return; }
       hub.setEnabled(a.id, a.enabled);
+      hub.logEvent('rig', { id: a.id, enabled: !!a.enabled, by: a.cname || undefined });
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify({ ok: true }));
       return;
@@ -326,6 +358,7 @@ function start(opts = {}) {
       }
       hub.broadcast({ type: 'key', code: 'Home', crit: true });   // absolute jump to top on every enabled rig (retransmitted until acked)
       hub.clearDesync();
+      hub.logEvent('rehome', { by: a.cname || undefined, rigs: hub.agents.size });
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify({ ok: true, delivered: hub.agents.size }));
       return;
@@ -338,6 +371,7 @@ function start(opts = {}) {
       if (PIN && a.pin !== PIN) { res.writeHead(403, { 'Access-Control-Allow-Origin': '*' }).end('{"ok":false,"pin":true}'); return; }
       if (a.action === 'take') hub.claim(a.cid, a.cname);
       else if (a.action === 'release') hub.release(a.cid);
+      hub.logEvent('handoff', { action: a.action, name: a.cname || undefined });
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify({ ok: true, commander: hub.commander() }));
       return;
@@ -373,6 +407,13 @@ function start(opts = {}) {
           desynced: !!a.desynced,
         })),
       }));
+      return;
+    }
+
+    // Session log export — the full forensic timeline of this hosting session.
+    if (url.pathname === '/log' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify(hub.logSnapshot()));
       return;
     }
 
