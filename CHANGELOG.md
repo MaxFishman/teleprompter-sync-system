@@ -3,6 +3,28 @@
 All notable changes to **Teleprompter Sync System (TSS)** are recorded here.
 Format based on [Keep a Changelog](https://keepachangelog.com/). Dates are ISO (YYYY-MM-DD).
 
+## [1.11.2] - 2026-11-16
+
+### Added
+- **Re-home control** — one button in the RIGS card sends every rig to the top (absolute Home) to
+  re-establish a known common position and clears the out-of-sync flags. The recovery primitive for
+  relative-only control after a rig drops mid-show. (`server.js` `/rehome`, `public/index.html`)
+
+### Fixed (reliability)
+- **Agent idle-watchdog** — the hub pings every 2s; if the agent sees no data for 6s (a half-open
+  socket after a Wi-Fi drop), it tears the link down and reconnects instead of hanging for minutes
+  while the rig silently drifts behind. (`agent.js`)
+- **Dead-rig reaping** — the hub drops any rig that hasn't acked a heartbeat in 9s, so a half-open rig
+  actively disconnects (and alarms) instead of lingering "connected" with stale state. (`server.js`)
+- **Drift detection** — each rig carries a stable client-id; a returning id is flagged out-of-sync
+  since it missed whatever was sent while it was gone. The console surfaces it with a red pulsing lamp
+  + row tint, a **RE-HOME** header chip, and a pulsing **Re-home** button. The Electron host passes
+  `--cid` so an agent restart counts too. (`agent.js`, `server.js`, `electron/main.js`, `public/index.html`)
+
+### Changed
+- **Readable rig list** — each connected rig is now a two-line row (name on its own line) instead of a
+  single line that crushed the name to a character or two in the narrow side column. (`public/index.html`)
+
 ## [1.11.1] - 2026-11-16
 
 ### Fixed
