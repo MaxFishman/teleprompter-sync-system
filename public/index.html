@@ -1077,7 +1077,7 @@
 
   // --- transmit ---
   let busy = false;
-  async function send(code){
+  async function send(code, opts){
     if (!inCommand){ toast('View only — take control to drive', 'warn'); pulseCmd(); return; }
     if (!armed){ toast('Disarmed — not sent', 'warn'); return; }
     nudge(code);
@@ -1087,8 +1087,11 @@
     tx.classList.add('fire'); setTimeout(() => tx.classList.remove('fire'), 120);
     const t0 = performance.now();
     try {
+      // crit → the hub re-delivers this one-shot command until every rig acks it
+      const cmd = withPin({ type:'key', code });
+      if (opts && opts.crit) cmd.crit = true;
       const r = await fetch('/cmd', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify(withPin({ type:'key', code })) });
+        body: JSON.stringify(cmd) });
       const j = await r.json();
       if (j && j.ok === false && j.notCommander){ inCommand = false; updateCmdUI(j.commander); toast('Someone else took control', 'warn'); }
       msEl.textContent = Math.round(performance.now() - t0) + 'ms';
@@ -1563,7 +1566,7 @@
       else {
         clearInterval(slateTimer); slateTimer = null;
         slate.classList.remove('show'); rollBtn.classList.remove('go');
-        if (armed){ send('Space'); toast('Rolling — all rigs', 'ok'); }
+        if (armed){ send('Space', { crit:true }); toast('Rolling — all rigs', 'ok'); }
         else toast('Disarmed — roll not sent', 'warn');
       }
     }, 900);
@@ -1576,7 +1579,7 @@
     setAuto(false);                         // stop the console-driven auto-scroll at once
     cancelRoll();                           // abort any pending roll
     alarmFlash.classList.remove('hit'); void alarmFlash.offsetWidth; alarmFlash.classList.add('hit'); // red flash
-    if (armed){ send('Space'); toast('ALL STOP — rigs paused', 'drop'); }
+    if (armed){ send('Space', { crit:true }); toast('ALL STOP — rigs paused', 'drop'); }
     else toast('ALL STOP — crawl halted', 'drop');
   }
   stopBtn.addEventListener('click', blackout);

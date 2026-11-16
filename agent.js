@@ -36,6 +36,12 @@ const path = require('path');
 // for minutes while this rig silently falls behind.
 const IDLE_TIMEOUT = 6000;
 
+// Stay alive through transient faults: a single bad command or a hiccup in a
+// helper must not take the whole rig offline mid-show. Log and keep running —
+// the SSE client reconnects on its own and injection is already guarded.
+process.on('uncaughtException', (e) => { try { process.stderr.write('uncaught: ' + ((e && e.stack) || e) + '\n'); } catch (_) {} });
+process.on('unhandledRejection', (e) => { try { process.stderr.write('unhandledRejection: ' + ((e && e.stack) || e) + '\n'); } catch (_) {} });
+
 // --- args --------------------------------------------------------------------
 function arg(flag, def) {
   const i = process.argv.indexOf(flag);
@@ -264,6 +270,7 @@ function connect() {
 
   let lastData = Date.now();
   let watchdog = null;
+  let lastExecSeq = 0;   // reset per connection: dedupe re-delivered commands (and survive a hub restart that resets seqs)
   const stopWatch = () => { if (watchdog) { clearInterval(watchdog); watchdog = null; } };
 
   const req = http.get(url, (res) => {
@@ -311,9 +318,14 @@ function connect() {
             const msg = JSON.parse(data);
             if (msg.type === 'denied') { process.stderr.write(`connection denied (${msg.reason}) — check --pin\n`); continue; }
             if (msg.seq != null) postAck(msg.seq); // confirm receipt (latency + in-sync)
+            // Dedupe injected commands by seq: the hub may re-deliver a critical
+            // command (All-stop, Roll, Re-home) until it's acked, so skip one we've
+            // already executed — the ack above still tells the hub to stop resending.
+            const dup = (msg.type === 'key' || msg.type === 'mouse') && msg.seq != null && msg.seq <= lastExecSeq;
             if (msg.type === 'hello') { myId = msg.id; }
-            else if (msg.type === 'key' && msg.code) { inject(msg.code); }
-            else if (msg.type === 'mouse') { mouse(msg); }
+            else if (dup) { /* already executed this command — ack only */ }
+            else if (msg.type === 'key' && msg.code) { if (msg.seq != null) lastExecSeq = msg.seq; inject(msg.code); }
+            else if (msg.type === 'mouse') { if (msg.seq != null) lastExecSeq = msg.seq; mouse(msg); }
             else if (msg.type === 'speed' && (msg.id === 'all' || Number(msg.id) === myId)) {
               SPEED = Math.max(1, Math.min(10, Math.round(Number(msg.value) || 1)));
               console.log(`speed → ${SPEED}`);
@@ -326,6 +338,8 @@ function connect() {
     res.on('end', () => { stopWatch(); retry(); });
     res.on('error', () => { stopWatch(); retry(); });
   });
+  // Low-latency, dead-peer-aware socket: no Nagle delay on tiny frames + OS keepalive.
+  req.on('socket', (s) => { try { s.setNoDelay(true); s.setKeepAlive(true, 15000); } catch (_) {} });
   req.on('error', (e) => { stopWatch(); console.error(`connection error: ${e.message}`); retry(); });
 }
 

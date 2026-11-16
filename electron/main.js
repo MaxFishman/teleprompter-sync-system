@@ -15,6 +15,9 @@ const REPO = 'MaxFishman/teleprompter-sync-system';
 let win = null;
 let hudWin = null;
 let agentProc = null;
+let agentArgs = null;        // base args, kept so a crashed agent can be respawned
+let agentRespawns = 0;       // consecutive quick crashes → backoff
+let agentRespawnTimer = null;
 let hubServer = null;
 let keypostPath = null;
 let sessionActive = false;
@@ -402,7 +405,11 @@ function createMini() {
 function destroyMini() { if (miniWin) { try { miniWin.destroy(); } catch (_) {} miniWin = null; } }
 function toggleMini() { if (miniWin) destroyMini(); else createMini(); updateTray(); }
 
-function stopAgent() { if (agentProc) { try { agentProc.kill(); } catch (_) {} agentProc = null; } }
+function stopAgent() {
+  if (agentRespawnTimer) { clearTimeout(agentRespawnTimer); agentRespawnTimer = null; }
+  // Mark the proc as intentionally stopped so its exit handler doesn't respawn it.
+  if (agentProc) { try { agentProc._intentional = true; agentProc.kill(); } catch (_) {} agentProc = null; }
+}
 function stopHub() { if (hubServer) { try { hubServer.close(); } catch (_) {} hubServer = null; } }
 
 // A stable per-install client-id so this machine's rig is recognised across agent
@@ -415,16 +422,33 @@ function machineCid() {
 }
 
 function spawnAgent(args) {
+  if (args) agentArgs = args;          // remember base args so we can respawn after a crash
   stopAgent();
   const agentPath = path.join(__dirname, '..', 'agent.js');
-  const full = [...args];
+  const full = [...agentArgs];
   if (!full.includes('--cid')) full.push('--cid', machineCid());
   if (keypostPath) full.push('--keypost', keypostPath);
-  agentProc = spawn(process.execPath, [agentPath, ...full], {
+  const startedAt = Date.now();
+  const proc = spawn(process.execPath, [agentPath, ...full], {
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
     stdio: 'ignore',
   });
-  agentProc.on('exit', () => { agentProc = null; });
+  proc._intentional = false;
+  agentProc = proc;
+  // Supervise: if the agent crashes mid-show, respawn it (with backoff) so the rig
+  // comes back on its own instead of silently vanishing.
+  proc.on('exit', () => {
+    if (agentProc === proc) agentProc = null;
+    if (proc._intentional || !sessionActive) return;   // intentional stop or session ended
+    if (Date.now() - startedAt > 15000) agentRespawns = 0;  // ran fine for a while → reset backoff
+    agentRespawns = Math.min(agentRespawns + 1, 6);
+    const delay = Math.min(500 * 2 ** (agentRespawns - 1), 15000);  // 0.5s → cap 15s
+    console.error(`agent exited unexpectedly — respawning in ${delay}ms (attempt ${agentRespawns})`);
+    agentRespawnTimer = setTimeout(() => {
+      agentRespawnTimer = null;
+      if (sessionActive) spawnAgent();   // reuse the remembered args
+    }, delay);
+  });
 }
 
 async function startHub(preferred, pin) {

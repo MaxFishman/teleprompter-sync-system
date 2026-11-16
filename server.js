@@ -39,6 +39,8 @@ function createHub() {
   const sentAt = new Map();   // seq -> send time, for round-trip latency
   const seenCids = new Set(); // agent client-ids seen this session — a repeat means a reconnect
   const STALE_REAP_MS = 9000; // reap an agent that hasn't acked a heartbeat in this long (half-open socket)
+  let pendingCrit = [];       // critical one-shot commands re-delivered until acked
+  const CRIT_TTL = 3000;      // ms to keep re-delivering a critical command (and to a rig that reconnects)
 
   function broadcast(payload) {
     payload.seq = ++cmdSeq; latestSeq = cmdSeq;
@@ -53,7 +55,28 @@ function createHub() {
     for (const res of observers) {
       try { res.write(line); } catch (_) { observers.delete(res); }
     }
+    // Critical one-shot commands (All-stop, Roll, Re-home) must land even on a rig
+    // that's briefly offline: keep them pending and re-deliver until acked / for a
+    // short window — including to any rig that (re)connects during that window.
+    if (payload.crit) {
+      pendingCrit.push({ seq: cmdSeq, line, gated, deadline: Date.now() + CRIT_TTL });
+      if (pendingCrit.length > 20) pendingCrit.shift();
+    }
   }
+  // Re-deliver pending critical commands to any connected rig that hasn't acked them.
+  const retransmit = setInterval(() => {
+    if (!pendingCrit.length) return;
+    const now = Date.now();
+    pendingCrit = pendingCrit.filter((p) => p.deadline > now);
+    for (const p of pendingCrit) {
+      for (const agent of agents.values()) {
+        if (p.gated && agent.enabled === false) continue;
+        if ((agent.lastAckSeq || 0) >= p.seq) continue;   // this rig already has it
+        try { agent.res.write(p.line); } catch (_) { removeAgent(agent.id); }
+      }
+    }
+  }, 400);
+  retransmit.unref && retransmit.unref();
   function setEnabled(id, enabled) { const a = agents.get(Number(id)); if (a) a.enabled = !!enabled; }
   function ack(id, seq) {
     const a = agents.get(Number(id)); if (!a) return;
@@ -107,6 +130,12 @@ function createHub() {
       return reconnected;
     },
     clearDesync() { for (const a of agents.values()) a.desynced = false; },
+    // Replay still-pending critical commands to a freshly (re)connected rig, so a
+    // rig that was offline when All-stop fired still stops the moment it returns.
+    replayCrit(res) {
+      const now = Date.now();
+      for (const p of pendingCrit) { if (p.deadline > now) { try { res.write(p.line); } catch (_) {} } }
+    },
     // Refresh (or auto-claim) command on a sent control cmd; returns false if someone else holds it.
     touchCommand(id, name) {
       const c = commanderInfo();
@@ -204,6 +233,7 @@ function start(opts = {}) {
       res.write(`data: ${JSON.stringify({ type: 'hello', id })}\n\n`);
       hub.agents.set(id, { id, name, ip, res, speed, cid, enabled: true, desynced, connectedAt: Date.now() });
       console.log(`[+] agent #${id} (${name}) from ${ip} — ${hub.agents.size} connected${desynced ? ' (reconnected — flagged out of sync)' : ''}`);
+      hub.replayCrit(res);   // deliver any still-pending critical command (e.g. a recent All-stop)
       req.on('close', () => hub.removeAgent(id));
       return;
     }
@@ -294,7 +324,7 @@ function start(opts = {}) {
         res.end(JSON.stringify({ ok: false, disarmed: true }));
         return;
       }
-      hub.broadcast({ type: 'key', code: 'Home' });   // absolute jump to top on every enabled rig
+      hub.broadcast({ type: 'key', code: 'Home', crit: true });   // absolute jump to top on every enabled rig (retransmitted until acked)
       hub.clearDesync();
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify({ ok: true, delivered: hub.agents.size }));
@@ -368,6 +398,13 @@ function start(opts = {}) {
 
     if (url.pathname === '/' || url.pathname === '') { serveStatic(res, 'index.html'); return; }
     serveStatic(res, url.pathname.replace(/^\/+/, ''));
+  });
+
+  // Low-latency, dead-peer-aware sockets: no Nagle delay on tiny command frames,
+  // and OS keepalive so a silently-dropped peer is detected without waiting on the
+  // 2h TCP default (backs up the app-level heartbeat/watchdog).
+  server.on('connection', (s) => {
+    try { s.setNoDelay(true); s.setKeepAlive(true, 15000); } catch (_) {}
   });
 
   return new Promise((resolve, reject) => {
