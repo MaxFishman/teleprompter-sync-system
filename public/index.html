@@ -111,6 +111,40 @@
   .tx.fire .dot { background:var(--live); box-shadow:0 0 12px var(--live-glow); }
   .tx .ms { color:var(--ink); min-width:48px; text-align:right; }
 
+  /* sync status chip */
+  .sync { display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:12px;
+    letter-spacing:.06em; padding-left:16px; border-left:1px solid var(--hair); color:var(--ink-dim); }
+  .sync .sl { width:9px; height:9px; border-radius:50%; background:#3a4049; transition:.25s; }
+  .sync.ok { color:var(--link); } .sync.ok .sl { background:var(--link); box-shadow:0 0 10px var(--link-glow); }
+  .sync.pending { color:var(--amber-soft); } .sync.pending .sl { background:var(--amber); box-shadow:0 0 10px var(--amber-glow); }
+  .sync.drift { color:#ff8a86; } .sync.drift .sl { background:var(--live); box-shadow:0 0 11px var(--live-glow); }
+
+  /* arm / disarm */
+  .armbtn { -webkit-appearance:none; appearance:none; cursor:pointer; display:flex; align-items:center; gap:8px;
+    font-family:var(--mono); font-size:12px; letter-spacing:.08em; padding:8px 13px; border-radius:10px;
+    border:1px solid var(--hair); background:var(--panel-1); color:var(--ink-dim); margin-left:16px; }
+  .armbtn .al { width:9px; height:9px; border-radius:50%; background:#3a4049; transition:.2s; }
+  .armbtn.armed { color:var(--amber-soft); border-color:#5a4418; }
+  .armbtn.armed .al { background:var(--amber); box-shadow:0 0 9px var(--amber-glow); }
+  .armbtn.disarmed { color:var(--ink-dim); }
+
+  .rig .l.stale { background:var(--amber); box-shadow:0 0 11px var(--amber-glow); }
+  .rig .lat { color:var(--ink-faint); }
+
+  /* toasts */
+  .toasts { position:fixed; top:16px; right:16px; z-index:80; display:flex; flex-direction:column; gap:8px;
+    pointer-events:none; }
+  .toast { font-size:13px; color:var(--ink); background:linear-gradient(180deg,var(--panel-2),var(--panel-1));
+    border:1px solid var(--hair); border-radius:11px; padding:11px 15px; box-shadow:0 18px 40px -22px #000;
+    display:flex; align-items:center; gap:10px; min-width:180px; animation:toast-in .2s ease both; }
+  .toast .td { width:9px; height:9px; border-radius:50%; flex:none; background:var(--link); box-shadow:0 0 9px var(--link-glow); }
+  .toast.drop .td { background:var(--live); box-shadow:0 0 9px var(--live-glow); }
+  .toast.warn .td { background:var(--amber); box-shadow:0 0 9px var(--amber-glow); }
+  .toast.out { animation:toast-out .25s ease both; }
+  @keyframes toast-in { from{ opacity:0; transform:translateX(16px); } to{ opacity:1; transform:none; } }
+  @keyframes toast-out { to{ opacity:0; transform:translateX(16px); } }
+  @media (prefers-reduced-motion:reduce){ .toast,.toast.out{ animation:none; } }
+
   /* ---- console grid ------------------------------------------------------- */
   .stage {
     max-width:1180px; margin:0 auto;
@@ -397,7 +431,11 @@
     <div class="tx" id="tx">
       <span class="dot"></span>TX<span class="ms" id="ms">—</span>
     </div>
+    <div class="sync" id="sync"><span class="sl"></span><span id="syncText">idle</span></div>
+    <button class="armbtn armed" id="armBtn"><span class="al"></span><span id="armText">ARMED</span></button>
   </div>
+
+  <div class="toasts" id="toasts"></div>
 
   <div class="warn" id="warn">
     <span class="l"></span>
@@ -553,6 +591,7 @@
   // --- transmit ---
   let busy = false;
   async function send(code){
+    if (!armed){ toast('Disarmed — not sent', 'warn'); return; }
     nudge(code);
     logCmd(code);
     const b = byKey.get(code);
@@ -612,34 +651,83 @@
     else if (e.code === 'Equal' || e.code === 'NumpadAdd'){ e.preventDefault(); setMaster(masterSpeed + 1); }
   });
 
-  // --- rig status poll ---
+  // --- rig status, sync state, arm, toasts ---
   const rigsEl = document.getElementById('rigs');
   const linkLamp = document.getElementById('linkLamp');
   const linkText = document.getElementById('linkText');
   const rigCount = document.getElementById('rigCount');
-  let lastSig = '';
+  const syncChip = document.getElementById('sync');
+  const syncText = document.getElementById('syncText');
+  const armBtn = document.getElementById('armBtn');
+  const armText = document.getElementById('armText');
+  const toastsEl = document.getElementById('toasts');
+  let armed = true;
+
+  function toast(msg, kind){
+    const el = document.createElement('div');
+    el.className = 'toast' + (kind ? ' ' + kind : '');
+    el.innerHTML = '<span class="td"></span>' + esc(msg);
+    toastsEl.appendChild(el);
+    setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 260); }, 2600);
+  }
+  function setArmedUI(a){
+    armed = !!a;
+    armBtn.classList.toggle('armed', armed); armBtn.classList.toggle('disarmed', !armed);
+    armText.textContent = armed ? 'ARMED' : 'DISARMED';
+  }
+  armBtn.addEventListener('click', () => {
+    const next = !armed; setArmedUI(next);
+    fetch('/arm', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ armed: next }) }).catch(() => {});
+    toast(next ? 'Armed — live' : 'Disarmed — safe', next ? 'ok' : 'warn');
+  });
+  function updateSync(s){
+    syncChip.classList.remove('ok','pending','drift');
+    if (s.count === 0){ syncText.textContent = 'idle'; return; }
+    if (s.agents.some(a => a.stale)) { syncChip.classList.add('drift'); syncText.textContent = 'DRIFT'; }
+    else if (s.agents.every(a => a.synced)) { syncChip.classList.add('ok'); syncText.textContent = 'IN SYNC'; }
+    else { syncChip.classList.add('pending'); syncText.textContent = 'SYNCING'; }
+  }
+  function rigRow(a){
+    return '<div class="rig" data-rig="' + a.id + '"><span class="l' + (a.stale ? ' stale' : '') + '"></span>' +
+      '<div class="meta"><div class="nm">' + esc(a.name) + '</div>' +
+      '<div class="ip">' + esc(a.ip || '—') + ' · <span class="lat">' + (a.latency != null ? a.latency + ' ms' : '') + '</span></div></div>' +
+      '<div class="spd" data-id="' + a.id + '">' +
+        '<button class="step" data-d="-1" aria-label="slower">−</button>' +
+        '<span class="sv">' + (a.speed || 1) + '<small>lines</small></span>' +
+        '<button class="step" data-d="1" aria-label="faster">+</button>' +
+      '</div></div>';
+  }
+
+  let lastSig = '', prevIds = new Set(), prevNames = {}, prevInit = false;
   async function poll(){
-    try {
-      const r = await fetch('/status'); const s = await r.json();
-      rigCount.textContent = s.count;
-      if (s.count > 0){ linkLamp.classList.add('link'); linkText.textContent = 'linked'; }
-      else { linkLamp.classList.remove('link'); linkText.textContent = 'no rigs linked'; }
-      // only rebuild the list when something actually changed — keeps steppers stable
-      const sig = JSON.stringify(s.agents.map(a => [a.id, a.name, a.ip, a.speed]));
-      if (sig === lastSig) return;
+    let s;
+    try { const r = await fetch('/status'); s = await r.json(); } catch (_) { return; }
+    rigCount.textContent = s.count;
+    if (s.count > 0){ linkLamp.classList.add('link'); linkText.textContent = 'linked'; }
+    else { linkLamp.classList.remove('link'); linkText.textContent = 'no rigs linked'; }
+    setArmedUI(s.armed);
+    updateSync(s);
+
+    const ids = new Set(s.agents.map(a => a.id));
+    const names = {}; s.agents.forEach(a => (names[a.id] = a.name));
+    if (prevInit){
+      ids.forEach(id => { if (!prevIds.has(id)) toast((names[id] || 'rig') + ' connected', 'ok'); });
+      prevIds.forEach(id => { if (!ids.has(id)) toast((prevNames[id] || 'rig') + ' dropped', 'drop'); });
+    }
+    prevIds = ids; prevNames = names; prevInit = true;
+
+    const sig = JSON.stringify(s.agents.map(a => [a.id, a.name, a.ip, a.speed]));
+    if (sig !== lastSig){
       lastSig = sig;
       rigsEl.innerHTML = s.count === 0
         ? '<div class="empty">Waiting for a rig to come online. Start <code style="font-family:var(--mono)">agent.js</code> on each laptop.</div>'
-        : s.agents.map(a =>
-            '<div class="rig"><span class="l"></span><div class="meta"><div class="nm">' +
-            esc(a.name) + '</div><div class="ip">' + esc(a.ip || '—') + '</div></div>' +
-            '<div class="spd" data-id="' + a.id + '">' +
-              '<button class="step" data-d="-1" aria-label="slower">−</button>' +
-              '<span class="sv">' + (a.speed || 1) + '<small>lines</small></span>' +
-              '<button class="step" data-d="1" aria-label="faster">+</button>' +
-            '</div></div>'
-          ).join('');
-    } catch (_) {}
+        : s.agents.map(rigRow).join('');
+    }
+    s.agents.forEach(a => {
+      const el = rigsEl.querySelector('.rig[data-rig="' + a.id + '"]'); if (!el) return;
+      const lamp = el.querySelector('.l'); if (lamp) lamp.classList.toggle('stale', !!a.stale);
+      const lat = el.querySelector('.lat'); if (lat) lat.textContent = a.latency != null ? a.latency + ' ms' : '';
+    });
   }
 
   // change a rig's scroll speed (delegated — list is rebuilt on poll)
@@ -715,7 +803,7 @@
   function postCmd(o){ fetch('/cmd', { method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify(o) }).catch(() => {}); }
   function txFlash(){ tx.classList.add('fire'); setTimeout(() => tx.classList.remove('fire'), 120); }
-  function mouseCmd(o){ o.type = 'mouse'; postCmd(o); txFlash(); }
+  function mouseCmd(o){ if (!armed) return; o.type = 'mouse'; postCmd(o); txFlash(); }
   function setDot(nx, ny){ padDot.style.left = (nx*100)+'%'; padDot.style.top = (ny*100)+'%'; }
   function norm(e){
     const r = pad.getBoundingClientRect();

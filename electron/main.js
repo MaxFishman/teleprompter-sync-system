@@ -2,7 +2,7 @@
 // Bundles the hub + agent so hosting/joining needs no Terminal and no separate
 // Node install (the agent runs under Electron's own Node via ELECTRON_RUN_AS_NODE).
 
-const { app, BrowserWindow, ipcMain, screen, shell, dialog, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, shell, dialog, Menu, globalShortcut, Tray, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
@@ -18,6 +18,82 @@ let hubServer = null;
 let keypostPath = null;
 let sessionActive = false;
 let sessionHost = '';   // URL the HUD watches for live status
+let hubRef = null;      // the running hub (host sessions only) for hotkeys + arm
+let tray = null;
+let trayTimer = null;
+let sessionMode = null; // 'host' | 'join' | null
+let joinedQuery = {};   // query for re-opening joined.html
+
+// --- global hotkeys: drive scroll without focusing the console (host only) ----
+const HOTKEYS = {
+  'CommandOrControl+Shift+Down': 'ArrowDown',
+  'CommandOrControl+Shift+Up': 'ArrowUp',
+  'CommandOrControl+Shift+Right': 'PageDown',
+  'CommandOrControl+Shift+Left': 'PageUp',
+  'CommandOrControl+Shift+Space': 'Space',
+};
+function registerHotkeys() {
+  for (const [accel, code] of Object.entries(HOTKEYS)) {
+    try {
+      globalShortcut.register(accel, () => {
+        if (hubRef && hubRef.armed) hubRef.broadcast({ type: 'key', code, ts: Date.now() });
+      });
+    } catch (_) {}
+  }
+}
+function unregisterHotkeys() { try { globalShortcut.unregisterAll(); } catch (_) {} }
+
+// --- menu-bar tray: status + quick actions while hosting in the background -----
+function createTray() {
+  if (tray) return;
+  try {
+    const img = nativeImage.createFromPath(path.join(__dirname, 'trayTemplate.png'));
+    img.setTemplateImage(true);
+    tray = new Tray(img);
+    tray.setToolTip('Teleprompter Sync System');
+    updateTray();
+    trayTimer = setInterval(() => { if (sessionActive) updateTray(); }, 2000);
+  } catch (_) {}
+}
+function updateTray() {
+  if (!tray) return;
+  const count = hubRef ? hubRef.agents.size : 0;
+  const hosting = sessionActive && !!hubRef;
+  const armedNow = hubRef ? hubRef.armed : true;
+  const rigs = count + (count === 1 ? ' rig' : ' rigs');
+  const menu = Menu.buildFromTemplate([
+    { label: hosting ? `Hosting · ${rigs}` : (sessionActive ? 'Backup rig · connected' : 'Idle'), enabled: false },
+    { type: 'separator' },
+    { label: 'Open console', enabled: sessionActive, click: () => { if (win) { win.show(); win.focus(); } } },
+    ...(hosting ? [{ label: armedNow ? 'Disarm (block input)' : 'Arm (go live)', click: () => {
+      hubRef.setArmed(!hubRef.armed); hubRef.broadcast({ type: 'armed', value: hubRef.armed }); updateTray();
+    } }] : []),
+    { label: 'Leave session', enabled: sessionActive, click: () => leaveSession() },
+    { type: 'separator' },
+    { label: 'Check for Updates…', click: checkUpdatesInteractive },
+    { label: 'Quit', click: () => app.quit() },
+  ]);
+  tray.setContextMenu(menu);
+  tray.setTitle(hosting ? `  ${count}` : '');
+}
+
+async function leaveSession() {
+  sessionActive = false; sessionHost = ''; hubRef = null; sessionMode = null;
+  unregisterHotkeys();
+  stopAgent(); stopHub(); destroyHud();
+  updateTray();
+  if (!win || win.isDestroyed()) createWindow();
+  else await win.loadFile(path.join(__dirname, 'launch.html'));
+  win.show(); win.focus();
+}
+
+// Re-open the window to the right screen for the current session.
+async function openConsole() {
+  if (!win || win.isDestroyed()) createWindow();
+  if (sessionMode === 'host' && sessionHost) await win.loadURL(sessionHost);
+  else if (sessionMode === 'join') await win.loadFile(path.join(__dirname, 'joined.html'), { query: joinedQuery });
+  win.show(); win.focus();
+}
 
 // --- in-app updates (checks GitHub Releases) ---------------------------------
 function httpsJSON(url, redirects = 0) {
@@ -137,6 +213,7 @@ function createWindow() {
   // Show the floating HUD whenever the console loses focus during a live session.
   win.on('blur', () => { if (sessionActive) showHud(); });
   win.on('focus', hideHud);
+  win.on('closed', () => { win = null; });
 }
 
 // --- floating activity HUD (top-right, always-on-top, non-stealing) ----------
@@ -158,7 +235,7 @@ function createHud() {
   hudWin.loadFile(path.join(__dirname, 'hud.html'), { query: { host: sessionHost } });
   hudWin.on('closed', () => { hudWin = null; });
 }
-function showHud() { if (!hudWin) createHud(); if (hudWin && !win.isFocused()) hudWin.showInactive(); }
+function showHud() { if (!hudWin) createHud(); if (hudWin && win && !win.isDestroyed() && !win.isFocused()) hudWin.showInactive(); }
 function hideHud() { if (hudWin) hudWin.hide(); }
 function destroyHud() { if (hudWin) { try { hudWin.destroy(); } catch (_) {} hudWin = null; } }
 
@@ -185,21 +262,31 @@ async function startHub(preferred) {
 app.whenReady().then(() => {
   keypostPath = resolveKeypost();
   buildMenu();
+  createTray();          // tray is always present; menu reflects session state
   createWindow();
-  app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+  app.on('activate', () => openConsole());
 });
-app.on('window-all-closed', () => { stopAgent(); stopHub(); destroyHud(); if (process.platform !== 'darwin') app.quit(); });
-app.on('before-quit', () => { stopAgent(); stopHub(); destroyHud(); });
+// On macOS, closing the window keeps a live session hosting in the background (tray stays).
+app.on('window-all-closed', () => {
+  if (!sessionActive) { unregisterHotkeys(); stopAgent(); stopHub(); destroyHud(); app.quit(); }
+});
+app.on('before-quit', () => {
+  unregisterHotkeys(); stopAgent(); stopHub(); destroyHud();
+  if (trayTimer) clearInterval(trayTimer);
+  if (tray) { try { tray.destroy(); } catch (_) {} tray = null; }
+});
 
 ipcMain.handle('host-session', async (_e, opts = {}) => {
   const res = await startHub(Number(opts.port) || 3000);
-  hubServer = res.server;
+  hubServer = res.server; hubRef = res.hub;
   const args = ['--host', `http://localhost:${res.port}`, '--name', 'host', '--no-mouse', '--speed', String(opts.speed || 1)];
   if (opts.target) args.push('--target', opts.target);
   spawnAgent(args);
-  sessionActive = true;
+  sessionActive = true; sessionMode = 'host';
   sessionHost = `http://localhost:${res.port}`;
+  registerHotkeys();
   createHud();
+  updateTray();
   await win.loadURL(`http://localhost:${res.port}`);
   return { port: res.port, primary: res.primary, urls: res.urls, keypost: !!keypostPath };
 });
@@ -209,21 +296,16 @@ ipcMain.handle('join-session', async (_e, opts = {}) => {
   const args = ['--host', host, '--name', opts.name || 'backup', '--speed', String(opts.speed || 1)];
   if (opts.target) args.push('--target', opts.target);
   spawnAgent(args);
-  sessionActive = true;
+  sessionActive = true; sessionMode = 'join';
   sessionHost = host;
+  joinedQuery = { host, target: opts.target || '', keypost: keypostPath ? '1' : '0' };
   createHud();
-  await win.loadFile(path.join(__dirname, 'joined.html'), {
-    query: { host, target: opts.target || '', keypost: keypostPath ? '1' : '0' },
-  });
+  updateTray();
+  await win.loadFile(path.join(__dirname, 'joined.html'), { query: joinedQuery });
   return { ok: true, keypost: !!keypostPath };
 });
 
-ipcMain.handle('leave-session', async () => {
-  sessionActive = false; sessionHost = '';
-  stopAgent(); stopHub(); destroyHud();
-  await win.loadFile(path.join(__dirname, 'launch.html'));
-  return { ok: true };
-});
+ipcMain.handle('leave-session', async () => { await leaveSession(); return { ok: true }; });
 
 ipcMain.handle('focus-main', () => {
   if (win) { win.show(); win.focus(); }

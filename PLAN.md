@@ -21,18 +21,19 @@ Uses the scroll-experience skill. Native CSS `animation-timeline` (no libraries)
 - [x] Console screenshot scale/zoom reveal in "A closer look"
 - [x] Reduced-motion + unsupported-browser fallbacks (gated by @supports + @media)
 
-## Phase 1 — Sync confidence & safety  (production-critical)
+## Phase 1 — Sync confidence & safety  (production-critical)  ✅ mostly done
 Server + agent + console. The operator must *know* both rigs are in sync.
-- [ ] **Rig acknowledgements** — agent acks each injected command; server relays; console shows per-rig confirm.
-- [ ] **"All rigs in sync" state** — green when every rig acked the latest command; amber/red on drift.
-- [ ] **Per-rig latency + heartbeat** — agent heartbeat + round-trip; console shows ms + online dot.
-- [ ] **Connect/drop toasts** — "backup-rig reconnected / dropped" notifications.
-- [ ] **Arm / disarm toggle** — when disarmed, no commands transmit (prevents stray keys mid-show).
-- [ ] **Join PIN** — host sets a code; agents/controllers must present it; server enforces.
+- [x] **Rig acknowledgements** — agent acks each command (incl. 2s heartbeat ping); server tracks per-rig.
+- [x] **"All rigs in sync" state** — header chip: IN SYNC / SYNCING / DRIFT.
+- [x] **Per-rig latency + heartbeat** — round-trip ms + stale dot shown per rig.
+- [x] **Connect/drop toasts** — "rig connected / dropped" notifications.
+- [x] **Arm / disarm toggle** — server-enforced; blocks key/mouse when disarmed; console + tray toggle.
+- [ ] **Join PIN** — host sets a code; agents/controllers must present it; server enforces.  ← next
 
-## Phase 2 — Desktop power (Electron)
-- [ ] **Global hotkeys** — drive scroll/page even when the console isn't focused (`globalShortcut`).
-- [ ] **Menu-bar / tray** — host in the background; tray shows status + quick actions.
+## Phase 2 — Desktop power (Electron)  ⏳ in progress
+- [x] **Global hotkeys** — ⌘⇧↑/↓/←/→/Space drive scroll with the console unfocused (host only).
+- [x] **Menu-bar / tray** — status + Open console / Arm / Leave / Updates / Quit; shows rig count.
+- [x] **Background hosting** — closing the window keeps the session live in the tray (macOS).
 - [ ] Remember window size/position.
 - [ ] Launch at login (opt-in).
 - [ ] Compact "mini controller" mode.
@@ -60,4 +61,4 @@ Server + agent + console. The operator must *know* both rigs are in sync.
 - (planned) `armed` gate on the host; `/cmd` rejects when disarmed.
 - (planned) PIN: `/events?pin=` + `/cmd` require matching host PIN.
 
-_Last updated: 2026-11-16 — starting Phase 0._
+_Last updated: 2026-11-16 — Phase 0 done; Phase 1 done (minus PIN); Phase 2 hotkeys+tray+background done. Next: Join PIN, then Phase 3 (auto-scroll, app picker, presets)._

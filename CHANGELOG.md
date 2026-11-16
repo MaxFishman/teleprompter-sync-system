@@ -3,6 +3,21 @@
 All notable changes to **Teleprompter Sync System (TSS)** are recorded here.
 Format based on [Keep a Changelog](https://keepachangelog.com/). Dates are ISO (YYYY-MM-DD).
 
+## [1.3.0] - 2026-11-16
+
+### Added
+- **Sync confidence** — every rig acknowledges each command (plus a 2s heartbeat ping), so the
+  console shows a live **IN SYNC / SYNCING / DRIFT** chip, **per-rig latency**, stale dots, and
+  **connect / drop toasts**. (`server.js`, `agent.js`, `public/index.html`)
+- **Arm / disarm** — a server-enforced safety gate; disarmed, key & mouse never transmit. Toggle
+  from the console header or the tray. (`server.js`, `public/index.html`, `electron/main.js`)
+- **Global hotkeys** — ⌘⇧↑ / ⌘⇧↓ / ⌘⇧← / ⌘⇧→ / ⌘⇧Space drive scroll on every rig even when the
+  console isn't focused (host sessions). (`electron/main.js`)
+- **Menu-bar tray** — status + Open console / Arm / Leave / Check for Updates / Quit, with the live
+  rig count shown in the menu bar. Closing the window keeps the session **hosting in the background**.
+- **Website scroll experience** — native scroll-driven progress bar, reveal-on-scroll, hero parallax,
+  and a scale-in for the console screenshot (reduced-motion + unsupported-browser safe). (`docs/`)
+
 ## [1.2.0] - 2026-11-16
 
 ### Added

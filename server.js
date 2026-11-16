@@ -28,10 +28,15 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 
 function createHub() {
   let nextAgentId = 1;
-  const agents = new Map();  // id -> { id, name, ip, res, speed, connectedAt }
-  const observers = new Set(); // read-only SSE streams (HUD): receive feed, never counted
+  let cmdSeq = 0, latestSeq = 0, armed = true;
+  const agents = new Map();   // id -> { id, name, ip, res, speed, connectedAt, latency, lastAckSeq, lastAckAt }
+  const observers = new Set();  // read-only SSE streams (HUD): receive feed, never counted
+  const sentAt = new Map();   // seq -> send time, for round-trip latency
 
   function broadcast(payload) {
+    payload.seq = ++cmdSeq; latestSeq = cmdSeq;
+    sentAt.set(cmdSeq, Date.now());
+    if (sentAt.size > 120) sentAt.delete(sentAt.keys().next().value);
     const line = `data: ${JSON.stringify(payload)}\n\n`;
     for (const agent of agents.values()) {
       try { agent.res.write(line); } catch (_) { removeAgent(agent.id); }
@@ -39,6 +44,13 @@ function createHub() {
     for (const res of observers) {
       try { res.write(line); } catch (_) { observers.delete(res); }
     }
+  }
+  function ack(id, seq) {
+    const a = agents.get(Number(id)); if (!a) return;
+    seq = Number(seq);
+    if (seq > (a.lastAckSeq || 0)) a.lastAckSeq = seq;
+    a.lastAckAt = Date.now();
+    const t = sentAt.get(seq); if (t) a.latency = Date.now() - t;
   }
   function removeAgent(id) {
     const a = agents.get(id);
@@ -48,15 +60,20 @@ function createHub() {
       console.log(`[-] agent #${id} (${a.name}) disconnected — ${agents.size} connected`);
     }
   }
+  // Heartbeat doubles as a latency probe: a data ping every 2s that agents ack.
   const heartbeat = setInterval(() => {
-    for (const agent of agents.values()) {
-      try { agent.res.write(`: ping\n\n`); } catch (_) { removeAgent(agent.id); }
-    }
-    for (const res of observers) { try { res.write(`: ping\n\n`); } catch (_) { observers.delete(res); } }
-  }, 15000);
+    broadcast({ type: 'ping', ts: Date.now() });
+    for (const res of observers) { try { res.write(`: k\n\n`); } catch (_) { observers.delete(res); } }
+  }, 2000);
   heartbeat.unref && heartbeat.unref();
 
-  return { get nextAgentId() { return nextAgentId++; }, agents, observers, broadcast, removeAgent };
+  return {
+    get nextAgentId() { return nextAgentId++; },
+    agents, observers, broadcast, removeAgent, ack,
+    get latestSeq() { return latestSeq; },
+    get armed() { return armed; },
+    setArmed(v) { armed = !!v; },
+  };
 }
 
 const MIME = {
@@ -149,23 +166,57 @@ function start(opts = {}) {
       let cmd;
       try { cmd = JSON.parse(body); } catch (_) { res.writeHead(400).end('bad json'); return; }
       cmd.ts = Date.now();
+      // Disarmed: key/mouse are blocked so stray input can't go to air. Speed/config pass.
+      if ((cmd.type === 'key' || cmd.type === 'mouse') && !hub.armed) {
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ ok: false, disarmed: true }));
+        return;
+      }
       if (cmd.type === 'speed' && cmd.id != null) {
         const v = Math.max(1, Math.min(10, Math.round(Number(cmd.value) || 1)));
         if (cmd.id === 'all') { for (const a of hub.agents.values()) a.speed = v; }
         else { const a = hub.agents.get(Number(cmd.id)); if (a) a.speed = v; }
       }
       hub.broadcast(cmd);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, delivered: hub.agents.size }));
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ ok: true, delivered: hub.agents.size, seq: hub.latestSeq }));
+      return;
+    }
+
+    // Agent confirms a command was injected (powers latency + "in sync").
+    if (url.pathname === '/ack' && req.method === 'POST') {
+      const body = await readBody(req);
+      let a; try { a = JSON.parse(body); } catch (_) { res.writeHead(400).end('bad json'); return; }
+      hub.ack(a.id, a.seq);
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end('{"ok":true}');
+      return;
+    }
+
+    // Arm / disarm the whole session (server-enforced across every controller).
+    if (url.pathname === '/arm' && req.method === 'POST') {
+      const body = await readBody(req);
+      let a; try { a = JSON.parse(body); } catch (_) { res.writeHead(400).end('bad json'); return; }
+      hub.setArmed(!!a.armed);
+      hub.broadcast({ type: 'armed', value: hub.armed });
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ ok: true, armed: hub.armed }));
       return;
     }
 
     if (url.pathname === '/status' && req.method === 'GET') {
+      const now = Date.now();
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify({
         count: hub.agents.size,
+        armed: hub.armed,
+        latestSeq: hub.latestSeq,
         agents: [...hub.agents.values()].map((a) => ({
           id: a.id, name: a.name, ip: a.ip, speed: a.speed, connectedAt: a.connectedAt,
+          latency: a.latency != null ? a.latency : null,
+          lastAckSeq: a.lastAckSeq || 0,
+          synced: (a.lastAckSeq || 0) >= hub.latestSeq,
+          stale: a.lastAckAt ? (now - a.lastAckAt > 5000) : true,
         })),
       }));
       return;
@@ -201,7 +252,7 @@ function start(opts = {}) {
       server.removeListener('error', reject);
       const boundPort = server.address().port;
       const info = joinInfo(boundPort);
-      resolve({ server, port: boundPort, urls: info.urls, primary: info.primary });
+      resolve({ server, port: boundPort, urls: info.urls, primary: info.primary, hub });
     });
   });
 }

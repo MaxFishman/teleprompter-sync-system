@@ -145,6 +145,21 @@ function mouse(m) {
   execFile(KEYPOST, args, () => {});
 }
 
+// --- ack a received command so the host can show latency + "in sync" ---------
+function postAck(seq) {
+  if (myId == null) return;
+  try {
+    const u = new URL(HOST + '/ack');
+    const data = JSON.stringify({ id: myId, seq });
+    const req = http.request({
+      hostname: u.hostname, port: u.port || 80, path: u.pathname, method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
+    }, (r) => r.resume());
+    req.on('error', () => {});
+    req.write(data); req.end();
+  } catch (_) {}
+}
+
 // --- SSE client (hand-rolled, so we need no dependencies) ---------------------
 function connect() {
   const url = new URL(`${HOST}/events`);
@@ -177,6 +192,7 @@ function connect() {
           if (!data) continue;
           try {
             const msg = JSON.parse(data);
+            if (msg.seq != null) postAck(msg.seq); // confirm receipt (latency + in-sync)
             if (msg.type === 'hello') { myId = msg.id; }
             else if (msg.type === 'key' && msg.code) { inject(msg.code); }
             else if (msg.type === 'mouse') { mouse(msg); }
