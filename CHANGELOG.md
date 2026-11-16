@@ -3,6 +3,26 @@
 All notable changes to **Teleprompter Sync System (TSS)** are recorded here.
 Format based on [Keep a Changelog](https://keepachangelog.com/). Dates are ISO (YYYY-MM-DD).
 
+## [1.8.0] - 2026-11-16
+
+### Added
+- **Session run-timer + wall clock** — the console header shows elapsed session time and the
+  current time of day, so you always know how long you've been live. (`public/index.html`)
+- **Quit guard while hosting** — quitting with rigs still connected now asks for confirmation
+  ("Quit while hosting?") so you can't accidentally drop the whole session. (`electron/main.js`)
+- **Sync state in the tray** — the menu-bar item shows `in sync` / `syncing` / `DRIFT` and flags a
+  `⚠` next to the rig count when a rig goes stale. (`electron/main.js`)
+- **Live release info on the site** — the download page pulls the latest version and total download
+  count from the GitHub Releases API and labels the "what's new" badge accordingly.
+  (`docs/index.html`)
+
+### Changed
+- **Site intro plays every visit** — removed the one-time session gate and the "Skip intro" button;
+  the 3D intro now reveals on each load (still click / scroll / key to dismiss, and fully skipped for
+  reduced-motion or no-WebGL). (`docs/index.html`)
+- **Intro is mobile/portrait-aware** — responsive FOV, laptop spread, and camera framing keep all
+  three rigs on screen on phone-width/portrait screens. (`docs/index.html`)
+
 ## [1.7.0] - 2026-11-16
 
 ### Added

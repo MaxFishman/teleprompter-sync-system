@@ -274,10 +274,6 @@
     color:var(--ink); text-shadow:0 2px 34px rgba(0,0,0,.6); }
   .intro-tag{ font-family:var(--mono); font-size:clamp(11px,2.2vw,14px); letter-spacing:.26em;
     color:var(--amber-soft); text-shadow:0 0 16px var(--amber-glow); }
-  .intro-skip{ position:absolute; bottom:22px; right:22px; pointer-events:auto; cursor:pointer;
-    font-family:var(--sans); font-size:13px; color:var(--ink-dim); background:rgba(23,27,33,.66);
-    border:1px solid var(--hair); border-radius:10px; padding:9px 14px; backdrop-filter:blur(6px); }
-  .intro-skip:hover{ color:var(--ink); }
   body.intro-lock{ overflow:hidden; }
   @media (prefers-reduced-motion: reduce){ .js #intro{ display:none; } }
 
@@ -322,7 +318,6 @@
       <div class="intro-name">TELEPROMPTER&nbsp;SYNC&nbsp;SYSTEM</div>
       <div class="intro-tag">two rigs · one line · zero drift</div>
     </div>
-    <button class="intro-skip" id="introSkip">Skip intro</button>
   </div>
 </div>
 <script>
@@ -591,11 +586,12 @@
     <h2>Keep the backup in lockstep.</h2>
     <p class="sub">Free and open source. Download the macOS app and sync your rigs in minutes.</p>
     <a class="btn primary" href="https://github.com/MaxFishman/teleprompter-sync-system/releases/latest" style="font-size:16px;padding:13px 22px">⬇&nbsp; Download for macOS</a>
+    <div class="note" id="relStat"></div>
     <div class="note">Unsigned build — first launch is right-click → <b>Open</b>. Requires Accessibility permission to send input.</div>
 
     <div class="whatsnew">
       <div class="wn-head">
-        <span class="wn-badge">NEW IN 1.6</span>
+        <span class="wn-badge" id="wnBadge">LATEST</span>
         <b>Production-ready control</b>
         <a href="https://github.com/MaxFishman/teleprompter-sync-system/releases/latest">Release notes</a>
       </div>
@@ -671,6 +667,21 @@
       var el = document.getElementById(id); if (el) obs.observe(el);
     });
   })();
+
+  // live latest version + download count from GitHub Releases
+  (function(){
+    fetch('https://api.github.com/repos/MaxFishman/teleprompter-sync-system/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(rel){
+        if (!rel || !rel.tag_name) return;
+        var ver = rel.tag_name.replace(/^v/, '');
+        var badge = document.getElementById('wnBadge'); if (badge) badge.textContent = 'NEW IN ' + ver;
+        var dl = (rel.assets || []).reduce(function(s, a){ return s + (a.download_count || 0); }, 0);
+        var stat = document.getElementById('relStat');
+        if (stat) stat.textContent = 'v' + ver + (dl ? ' · ' + dl.toLocaleString() + ' downloads' : '');
+      })
+      .catch(function(){});
+  })();
 </script>
 
 <script type="module">
@@ -692,16 +703,12 @@
   }
 
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const small  = innerWidth < 760 || innerHeight < 520;
-  const seen   = sessionStorage.getItem('tss-intro') === '1';
   let webgl = false; try { webgl = !!document.createElement('canvas').getContext('webgl'); } catch (_) {}
-  if (reduce || small || seen || !webgl) { endIntro(); return; }   // skip straight to the site
+  if (reduce || !webgl || innerWidth < 320) { endIntro(); return; }   // skip straight to the site — plays on every load otherwise
 
   document.body.classList.add('intro-lock');
   // app name up immediately — prominent the instant the intro starts (even while 3D loads)
   setTimeout(function(){ brand.classList.add('show'); }, 120);
-  const skipBtn = document.getElementById('introSkip');
-  if (skipBtn) skipBtn.addEventListener('click', function(e){ e.stopPropagation(); endIntro(); });
   intro.addEventListener('click', endIntro);
   addEventListener('wheel', endIntro, { once:true, passive:true });
   addEventListener('keydown', endIntro, { once:true });
@@ -711,7 +718,6 @@
   try { THREE = await import('https://unpkg.com/three@0.160.0/build/three.module.js'); }
   catch (_) { clearTimeout(safety); endIntro(); return; }
   if (intro.classList.contains('done')) return; // user skipped during load
-  sessionStorage.setItem('tss-intro', '1');
 
   // --- shared teleprompter texture (identical on every screen => in sync) ---
   const cw = 256, ch = 512, tc = document.createElement('canvas'); tc.width = cw; tc.height = ch;
@@ -737,11 +743,18 @@
   const tex = new THREE.CanvasTexture(tc); tex.colorSpace = THREE.SRGBColorSpace;
 
   // --- scene ---
-  const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('introCanvas'), antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight);
+  // responsive framing — keep all the laptops on screen in portrait/mobile too
+  const aspect0 = innerWidth / innerHeight, portrait = aspect0 < 0.95;
+  const SPREAD = portrait ? 1.85 : 2.55, FOV = portrait ? 56 : 42, LOOK_Y = portrait ? 0.3 : 0.15;
+  const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('introCanvas'), antialias: !portrait, alpha: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, portrait ? 1.5 : 2)); renderer.setSize(innerWidth, innerHeight);
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x090b0e, 7.5, 21);   // depth + lets the grid recede
-  const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 100);
+  scene.fog = new THREE.Fog(0x090b0e, 8, 24);
+  const camera = new THREE.PerspectiveCamera(FOV, aspect0, 0.1, 100);
+  // half-extent of the outer laptop's silhouette (wider in portrait: the ±rotation projects the screen + base out past its width)
+  const HALF = portrait ? 1.42 : 0.95, MARGIN = portrait ? 1.2 : 1.14;
+  function fitZ(a){ const vF = FOV * Math.PI / 180, dV = 1.4 / Math.tan(vF / 2),
+    hF = 2 * Math.atan(Math.tan(vF / 2) * a), dH = (SPREAD + HALF) / Math.tan(hF / 2); return Math.max(dV, dH) * MARGIN; }
 
   const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1b2027, metalness: 0.62, roughness: 0.42 });
   const bezelMat = new THREE.MeshStandardMaterial({ color: 0x0c0f13, metalness: 0.5, roughness: 0.5 });
@@ -755,7 +768,7 @@
     s.position.set(0, 0.035, -0.52); s.rotation.x = -0.42; g.add(s);
     return g;
   }
-  const laptops = [], xs = [-2.55, 0, 2.55], ry = [0.5, 0, -0.5];
+  const laptops = [], xs = [-SPREAD, 0, SPREAD], ry = [portrait ? 0.42 : 0.5, 0, portrait ? -0.42 : -0.5];
   xs.forEach(function(x, i){ const l = makeLaptop(); l.position.set(x, 0, i === 1 ? 0.35 : -0.15); l.rotation.y = ry[i]; scene.add(l); laptops.push(l); });
 
   scene.add(new THREE.AmbientLight(0x455160, 1.25));
@@ -770,7 +783,8 @@
   wall.position.set(0, 2.6, -7.5); scene.add(wall);
 
   // --- camera reveal (GSAP if present, else time-based) ---
-  const camStart = { x: 1.1, y: 0.95, z: 4.3 }, camEnd = { x: 0, y: 1.85, z: 8.1 };
+  const zEnd = fitZ(aspect0);
+  const camStart = { x: portrait ? 0.4 : 1.1, y: portrait ? 0.7 : 0.95, z: zEnd * 0.62 }, camEnd = { x: 0, y: portrait ? 1.15 : 1.85, z: zEnd };
   camera.position.set(camStart.x, camStart.y, camStart.z);
   const gsap = window.gsap, t0 = performance.now(), DUR = 3500;
   const easeIO = function(t){ return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
@@ -787,7 +801,7 @@
     const t = clock.getElapsedTime();
     laptops.forEach(function(l, i){ l.position.y = Math.sin(t * 0.9 + i * 1.3) * 0.02; });
     if (!gsap){ const k = easeIO(Math.min(1, (performance.now() - t0) / DUR)); camera.position.set(lerp(camStart.x, camEnd.x, k), lerp(camStart.y, camEnd.y, k), lerp(camStart.z, camEnd.z, k)); }
-    camera.lookAt(0, 0.15, 0);
+    camera.lookAt(0, LOOK_Y, 0);
     renderer.render(scene, camera);
   }
   tick();

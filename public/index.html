@@ -111,6 +111,11 @@
   .tx.fire .dot { background:var(--live); box-shadow:0 0 12px var(--live-glow); }
   .tx .ms { color:var(--ink); min-width:48px; text-align:right; }
 
+  /* session timer + wall clock */
+  .sessclock { font-family:var(--mono); font-size:12px; color:var(--ink-dim); white-space:nowrap;
+    margin-left:16px; padding-left:16px; border-left:1px solid var(--hair); }
+  .sessclock #runTimer { color:var(--ink); }
+
   /* sync status chip */
   .sync { display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:12px;
     letter-spacing:.06em; padding-left:16px; border-left:1px solid var(--hair); color:var(--ink-dim); }
@@ -515,6 +520,7 @@
         <b>TELEPROMPTER&nbsp;SYNC&nbsp;SYSTEM</b><br><span><span class="tss">TSS</span> · redundant rig link</span>
       </div>
     </div>
+    <div class="sessclock" title="Session time · clock"><span id="runTimer">0:00:00</span> · <span id="wallClock">--:--</span></div>
     <div class="spacer"></div>
     <div class="status">
       <span class="lamp" id="linkLamp"></span>
@@ -887,6 +893,17 @@
   });
   addEventListener('pointerdown', ensureAudio, { once: true }); // browsers need a gesture to start audio
   setAlarmUI();
+
+  // --- session run-timer + wall clock ---
+  const runTimer = document.getElementById('runTimer'), wallClock = document.getElementById('wallClock');
+  const sessStart = Date.now();
+  function fmtDur(ms){ const s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+    return h + ':' + String(m).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
+  function tickClock(){
+    runTimer.textContent = fmtDur(Date.now() - sessStart);
+    const d = new Date(); wallClock.textContent = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+  tickClock(); setInterval(tickClock, 1000);
 
   function updateSync(s){
     syncChip.classList.remove('ok','pending','drift');

@@ -22,6 +22,7 @@ let hubRef = null;      // the running hub (host sessions only) for hotkeys + ar
 let tray = null;
 let trayTimer = null;
 let sessionMode = null; // 'host' | 'join' | null
+let quitConfirmed = false; // set once the user OKs quitting a live session
 let joinedQuery = {};   // query for re-opening joined.html
 let sessionPinValue = '';
 let miniWin = null;     // compact always-on-top transport
@@ -63,8 +64,16 @@ function updateTray() {
   const hosting = sessionActive && !!hubRef;
   const armedNow = hubRef ? hubRef.armed : true;
   const rigs = count + (count === 1 ? ' rig' : ' rigs');
+  let sync = '', warn = false;
+  if (hosting) {
+    const ags = [...hubRef.agents.values()].filter((a) => a.enabled !== false), now = Date.now();
+    const stale = ags.some((a) => (a.lastAckAt ? now - a.lastAckAt > 5000 : true));
+    const synced = ags.length && ags.every((a) => (a.lastAckSeq || 0) >= hubRef.latestSeq);
+    warn = stale && ags.length > 0;
+    sync = ags.length ? (stale ? ' · DRIFT' : synced ? ' · in sync' : ' · syncing') : '';
+  }
   const menu = Menu.buildFromTemplate([
-    { label: hosting ? `Hosting · ${rigs}` : (sessionActive ? 'Backup rig · connected' : 'Idle'), enabled: false },
+    { label: hosting ? `Hosting · ${rigs}${sync}` : (sessionActive ? 'Backup rig · connected' : 'Idle'), enabled: false },
     { type: 'separator' },
     { label: 'Open console', enabled: sessionActive, click: () => openConsole() },
     { label: miniWin ? 'Hide mini controller' : 'Mini controller', enabled: sessionActive, click: () => toggleMini() },
@@ -79,7 +88,7 @@ function updateTray() {
     { label: 'Quit', click: () => app.quit() },
   ]);
   tray.setContextMenu(menu);
-  tray.setTitle(hosting ? `  ${count}` : '');
+  tray.setTitle(hosting ? `  ${count}${warn ? ' ⚠' : ''}` : '');
 }
 
 async function leaveSession() {
@@ -335,7 +344,23 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (!sessionActive) { unregisterHotkeys(); stopAgent(); stopHub(); destroyHud(); app.quit(); }
 });
-app.on('before-quit', () => {
+app.on('before-quit', (e) => {
+  // Guard against quitting out from under a live session with rigs still connected.
+  const hosting = sessionActive && sessionMode === 'host' && !!hubRef;
+  const rigs = hosting ? hubRef.agents.size : 0;
+  if (!quitConfirmed && hosting && rigs > 0) {
+    e.preventDefault();
+    const choice = dialog.showMessageBoxSync(win && !win.isDestroyed() ? win : undefined, {
+      type: 'warning',
+      buttons: ['Quit', 'Keep hosting'],
+      defaultId: 1,
+      cancelId: 1,
+      message: 'Quit while hosting?',
+      detail: `${rigs} ${rigs === 1 ? 'rig is' : 'rigs are'} connected. Quitting ends the session and drops every rig.`,
+    });
+    if (choice === 0) { quitConfirmed = true; app.quit(); }
+    return;
+  }
   unregisterHotkeys(); stopAgent(); stopHub(); destroyHud(); destroyMini();
   if (trayTimer) clearInterval(trayTimer);
   if (tray) { try { tray.destroy(); } catch (_) {} tray = null; }
