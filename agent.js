@@ -37,6 +37,7 @@ function arg(flag, def) {
 const HOST = arg('--host', 'http://localhost:3000').replace(/\/+$/, '');
 const TARGET = arg('--target', '');            // app name, e.g. "Teleprompter"
 const NAME = arg('--name', `agent-${process.pid}`);
+const PIN = arg('--pin', ''); // optional session PIN enforced by the host
 const RESTORE = process.argv.includes('--restore-focus'); // for osascript fallback only
 
 // Scroll speed = how many line-scroll key presses this laptop makes per command.
@@ -165,6 +166,7 @@ function connect() {
   const url = new URL(`${HOST}/events`);
   url.searchParams.set('name', NAME);
   url.searchParams.set('speed', String(SPEED));
+  if (PIN) url.searchParams.set('pin', PIN);
 
   const req = http.get(url, (res) => {
     if (res.statusCode !== 200) {
@@ -192,6 +194,7 @@ function connect() {
           if (!data) continue;
           try {
             const msg = JSON.parse(data);
+            if (msg.type === 'denied') { process.stderr.write(`connection denied (${msg.reason}) — check --pin\n`); continue; }
             if (msg.seq != null) postAck(msg.seq); // confirm receipt (latency + in-sync)
             if (msg.type === 'hello') { myId = msg.id; }
             else if (msg.type === 'key' && msg.code) { inject(msg.code); }

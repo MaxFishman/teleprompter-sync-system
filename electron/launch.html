@@ -116,12 +116,16 @@
     <form id="hostForm">
       <div class="field">
         <label>Teleprompter app on this Mac</label>
-        <input id="hTarget" placeholder="e.g. Teleprompter" autocomplete="off" />
+        <input id="hTarget" list="appList" placeholder="pick or type an app…" autocomplete="off" />
       </div>
       <div class="two">
         <div class="field">
           <label>Scroll speed (1–10)</label>
           <input id="hSpeed" type="number" min="1" max="10" value="1" />
+        </div>
+        <div class="field">
+          <label>Session PIN (optional)</label>
+          <input id="hPin" placeholder="e.g. 4821" autocomplete="off" inputmode="numeric" />
         </div>
       </div>
       <button class="go" id="hostGo">Start hosting</button>
@@ -136,7 +140,7 @@
       </div>
       <div class="field">
         <label>Teleprompter app on this Mac</label>
-        <input id="jTarget" placeholder="e.g. Teleprompter" autocomplete="off" />
+        <input id="jTarget" list="appList" placeholder="pick or type an app…" autocomplete="off" />
       </div>
       <div class="two">
         <div class="field">
@@ -148,11 +152,16 @@
           <input id="jName" placeholder="backup" autocomplete="off" />
         </div>
       </div>
+      <div class="field">
+        <label>Session PIN (if the host set one)</label>
+        <input id="jPin" placeholder="e.g. 4821" autocomplete="off" inputmode="numeric" />
+      </div>
       <button class="go" id="joinGo">Join session</button>
       <div class="note">Bring the teleprompter app to the front and leave it there — the host will drive it.</div>
     </form>
 
     <div class="err" id="err"></div>
+    <datalist id="appList"></datalist>
     <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--hair);text-align:center;font-size:12px;color:var(--ink-faint)">Built by <b style="color:var(--ink-dim);font-weight:600">Max Fishman</b></div>
   </div>
 
@@ -183,7 +192,7 @@
     e.preventDefault(); err.textContent = '';
     const btn = $('hostGo'); btn.disabled = true; btn.textContent = 'Starting…';
     try {
-      await window.tss.host({ target: $('hTarget').value.trim(), speed: Number($('hSpeed').value) || 1 });
+      await window.tss.host({ target: $('hTarget').value.trim(), speed: Number($('hSpeed').value) || 1, pin: $('hPin').value.trim() });
     } catch (ex) {
       err.textContent = 'Could not start hosting: ' + (ex && ex.message ? ex.message : ex);
       btn.disabled = false; btn.textContent = 'Start hosting';
@@ -199,6 +208,7 @@
       await window.tss.join({
         host, target: $('jTarget').value.trim(),
         speed: Number($('jSpeed').value) || 1, name: $('jName').value.trim() || 'backup',
+        pin: $('jPin').value.trim(),
       });
     } catch (ex) {
       err.textContent = 'Could not join: ' + (ex && ex.message ? ex.message : ex);
@@ -230,6 +240,22 @@
       }
     });
     $('update').hidden = false;
+  })();
+
+  // prefill from the last session + populate the running-app picker
+  (async function(){
+    try {
+      const cfg = (window.tss && window.tss.getConfig) ? await window.tss.getConfig() : {};
+      if (cfg.target){ $('hTarget').value = cfg.target; $('jTarget').value = cfg.target; }
+      if (cfg.speed){ $('hSpeed').value = cfg.speed; $('jSpeed').value = cfg.speed; }
+      if (cfg.name) $('jName').value = cfg.name;
+      if (cfg.host) $('jHost').value = cfg.host;
+      if (cfg.pin){ $('hPin').value = cfg.pin; $('jPin').value = cfg.pin; }
+    } catch (_) {}
+    try {
+      const apps = (window.tss && window.tss.listApps) ? await window.tss.listApps() : [];
+      $('appList').innerHTML = apps.map(a => '<option value="' + a.replace(/"/g, '&quot;') + '"></option>').join('');
+    } catch (_) {}
   })();
 </script>
 </body>

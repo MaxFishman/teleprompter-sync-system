@@ -38,13 +38,16 @@ function createHub() {
     sentAt.set(cmdSeq, Date.now());
     if (sentAt.size > 120) sentAt.delete(sentAt.keys().next().value);
     const line = `data: ${JSON.stringify(payload)}\n\n`;
+    const gated = payload.type === 'key' || payload.type === 'mouse'; // skip disabled rigs
     for (const agent of agents.values()) {
+      if (gated && agent.enabled === false) continue;
       try { agent.res.write(line); } catch (_) { removeAgent(agent.id); }
     }
     for (const res of observers) {
       try { res.write(line); } catch (_) { observers.delete(res); }
     }
   }
+  function setEnabled(id, enabled) { const a = agents.get(Number(id)); if (a) a.enabled = !!enabled; }
   function ack(id, seq) {
     const a = agents.get(Number(id)); if (!a) return;
     seq = Number(seq);
@@ -69,7 +72,7 @@ function createHub() {
 
   return {
     get nextAgentId() { return nextAgentId++; },
-    agents, observers, broadcast, removeAgent, ack,
+    agents, observers, broadcast, removeAgent, ack, setEnabled,
     get latestSeq() { return latestSeq; },
     get armed() { return armed; },
     setArmed(v) { armed = !!v; },
@@ -122,6 +125,7 @@ function start(opts = {}) {
   const port = opts.port != null ? Number(opts.port)
     : (process.env.PORT != null ? Number(process.env.PORT) : 3000);
   const hub = createHub();
+  const PIN = String(opts.pin || process.env.TSS_PIN || '').trim();
 
   function joinInfo(reqPort) {
     const ips = lanAddresses();
@@ -151,11 +155,12 @@ function start(opts = {}) {
         return;
       }
 
+      if (PIN && url.searchParams.get('pin') !== PIN) { res.end(`data: ${JSON.stringify({ type: 'denied', reason: 'pin' })}\n\n`); return; }
       const id = hub.nextAgentId;
       const name = url.searchParams.get('name') || `agent-${id}`;
       const speed = Math.max(1, Math.min(10, Math.round(Number(url.searchParams.get('speed')) || 1)));
       res.write(`data: ${JSON.stringify({ type: 'hello', id })}\n\n`);
-      hub.agents.set(id, { id, name, ip, res, speed, connectedAt: Date.now() });
+      hub.agents.set(id, { id, name, ip, res, speed, enabled: true, connectedAt: Date.now() });
       console.log(`[+] agent #${id} (${name}) from ${ip} — ${hub.agents.size} connected`);
       req.on('close', () => hub.removeAgent(id));
       return;
@@ -165,6 +170,11 @@ function start(opts = {}) {
       const body = await readBody(req);
       let cmd;
       try { cmd = JSON.parse(body); } catch (_) { res.writeHead(400).end('bad json'); return; }
+      if (PIN && cmd.pin !== PIN) {
+        res.writeHead(403, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ ok: false, pin: true }));
+        return;
+      }
       cmd.ts = Date.now();
       // Disarmed: key/mouse are blocked so stray input can't go to air. Speed/config pass.
       if ((cmd.type === 'key' || cmd.type === 'mouse') && !hub.armed) {
@@ -197,10 +207,31 @@ function start(opts = {}) {
     if (url.pathname === '/arm' && req.method === 'POST') {
       const body = await readBody(req);
       let a; try { a = JSON.parse(body); } catch (_) { res.writeHead(400).end('bad json'); return; }
+      if (PIN && a.pin !== PIN) { res.writeHead(403, { 'Access-Control-Allow-Origin': '*' }).end('{"ok":false,"pin":true}'); return; }
       hub.setArmed(!!a.armed);
       hub.broadcast({ type: 'armed', value: hub.armed });
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify({ ok: true, armed: hub.armed }));
+      return;
+    }
+
+    // Enable / disable a rig (temporarily drop it from the sync set).
+    if (url.pathname === '/rig' && req.method === 'POST') {
+      const body = await readBody(req);
+      let a; try { a = JSON.parse(body); } catch (_) { res.writeHead(400).end('bad json'); return; }
+      if (PIN && a.pin !== PIN) { res.writeHead(403, { 'Access-Control-Allow-Origin': '*' }).end('{"ok":false,"pin":true}'); return; }
+      hub.setEnabled(a.id, a.enabled);
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    // Validate a session PIN (controllers call this before enabling control).
+    if (url.pathname === '/pincheck' && req.method === 'POST') {
+      const body = await readBody(req);
+      let a; try { a = JSON.parse(body); } catch (_) { a = {}; }
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ ok: !PIN || a.pin === PIN }));
       return;
     }
 
@@ -210,12 +241,14 @@ function start(opts = {}) {
       res.end(JSON.stringify({
         count: hub.agents.size,
         armed: hub.armed,
+        pinRequired: !!PIN,
         latestSeq: hub.latestSeq,
         agents: [...hub.agents.values()].map((a) => ({
           id: a.id, name: a.name, ip: a.ip, speed: a.speed, connectedAt: a.connectedAt,
+          enabled: a.enabled !== false,
           latency: a.latency != null ? a.latency : null,
           lastAckSeq: a.lastAckSeq || 0,
-          synced: (a.lastAckSeq || 0) >= hub.latestSeq,
+          synced: a.enabled === false ? true : (a.lastAckSeq || 0) >= hub.latestSeq,
           stale: a.lastAckAt ? (now - a.lastAckAt > 5000) : true,
         })),
       }));

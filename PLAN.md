@@ -28,7 +28,7 @@ Server + agent + console. The operator must *know* both rigs are in sync.
 - [x] **Per-rig latency + heartbeat** — round-trip ms + stale dot shown per rig.
 - [x] **Connect/drop toasts** — "rig connected / dropped" notifications.
 - [x] **Arm / disarm toggle** — server-enforced; blocks key/mouse when disarmed; console + tray toggle.
-- [ ] **Join PIN** — host sets a code; agents/controllers must present it; server enforces.  ← next
+- [x] **Join PIN** — host sets a code; agents & controllers must present it; server-enforced, with a console unlock gate.
 
 ## Phase 2 — Desktop power (Electron)  ⏳ in progress
 - [x] **Global hotkeys** — ⌘⇧↑/↓/←/→/Space drive scroll with the console unfocused (host only).
@@ -39,12 +39,13 @@ Server + agent + console. The operator must *know* both rigs are in sync.
 - [ ] Compact "mini controller" mode.
 - [ ] Beta update channel.
 
-## Phase 3 — Controls
-- [ ] **Auto-scroll (WPM crawl)** — continuous timed scroll broadcast to all rigs; adjustable speed; play/pause.
-- [ ] **App picker** — dropdown of running apps (osascript) instead of typing the target name.
-- [ ] **Presets** — remember target app + speed per show; named presets.
+## Phase 3 — Controls  ⏳ in progress
+- [x] **Auto-scroll (WPM crawl)** — timed scroll broadcast to all rigs; play/pause + rate (lines/min).
+- [x] **App picker** — datalist of running apps (osascript) on the launch screen.
+- [x] **Remember last settings** — target/speed/host/name/pin persisted and prefilled next launch.
+- [x] **Per-rig enable/disable** — toggle a rig out of the sync set (server-gated).
+- [ ] **Named presets** — multiple saved show configs (beyond last-used).
 - [ ] **Custom key maps** — per-target key bindings (apps differ).
-- [ ] **Per-rig enable/disable** — temporarily drop a rig from the sync set.
 
 ## Phase 4 — Mobile
 - [ ] **Remote mode** — phone-only full-screen view: giant scroll rocker + play/pause + speed.
@@ -61,4 +62,4 @@ Server + agent + console. The operator must *know* both rigs are in sync.
 - (planned) `armed` gate on the host; `/cmd` rejects when disarmed.
 - (planned) PIN: `/events?pin=` + `/cmd` require matching host PIN.
 
-_Last updated: 2026-11-16 — Phase 0 done; Phase 1 done (minus PIN); Phase 2 hotkeys+tray+background done. Next: Join PIN, then Phase 3 (auto-scroll, app picker, presets)._
+_Last updated: 2026-11-16 — Phases 0 & 1 done; Phase 2 hotkeys+tray+background done; Phase 3 auto-scroll + app-picker + remember-settings + per-rig enable done. Next: named presets, custom key maps, then Phase 2 leftovers (window state, launch-at-login, mini mode) and Phase 4 (phone Remote mode)._

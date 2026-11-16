@@ -173,6 +173,24 @@ function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+// --- remembered settings + running-app picker --------------------------------
+function configPath() { return path.join(app.getPath('userData'), 'tss-config.json'); }
+function loadConfig() { try { return JSON.parse(fs.readFileSync(configPath(), 'utf8')); } catch (_) { return {}; } }
+function saveConfig(obj) {
+  try { fs.mkdirSync(path.dirname(configPath()), { recursive: true }); fs.writeFileSync(configPath(), JSON.stringify(obj, null, 2)); } catch (_) {}
+}
+ipcMain.handle('get-config', () => loadConfig());
+ipcMain.handle('list-apps', () => {
+  try {
+    const out = execFileSync('osascript', [
+      '-e', 'tell application "System Events" to get name of every application process whose background only is false',
+    ], { encoding: 'utf8', timeout: 4000 });
+    return out.split(',').map((s) => s.trim())
+      .filter((n) => n && n !== 'Teleprompter Sync System' && n !== 'Electron')
+      .sort((a, b) => a.localeCompare(b));
+  } catch (_) { return []; }
+});
+
 ipcMain.handle('check-updates', () => getUpdate());
 ipcMain.handle('open-external', (_e, url) => shell.openExternal(url));
 ipcMain.handle('download-update', async (_e, url) => {
@@ -254,9 +272,9 @@ function spawnAgent(args) {
   agentProc.on('exit', () => { agentProc = null; });
 }
 
-async function startHub(preferred) {
-  try { return await hub.start({ port: preferred }); }
-  catch (_) { return await hub.start({ port: 0 }); } // port busy → let the OS pick one
+async function startHub(preferred, pin) {
+  try { return await hub.start({ port: preferred, pin }); }
+  catch (_) { return await hub.start({ port: 0, pin }); } // port busy → let the OS pick one
 }
 
 app.whenReady().then(() => {
@@ -277,30 +295,37 @@ app.on('before-quit', () => {
 });
 
 ipcMain.handle('host-session', async (_e, opts = {}) => {
-  const res = await startHub(Number(opts.port) || 3000);
+  const pin = String(opts.pin || '').trim();
+  const res = await startHub(Number(opts.port) || 3000, pin);
   hubServer = res.server; hubRef = res.hub;
   const args = ['--host', `http://localhost:${res.port}`, '--name', 'host', '--no-mouse', '--speed', String(opts.speed || 1)];
   if (opts.target) args.push('--target', opts.target);
+  if (pin) args.push('--pin', pin);
   spawnAgent(args);
   sessionActive = true; sessionMode = 'host';
   sessionHost = `http://localhost:${res.port}`;
   registerHotkeys();
   createHud();
   updateTray();
-  await win.loadURL(`http://localhost:${res.port}`);
+  saveConfig({ ...loadConfig(), target: opts.target || '', speed: opts.speed || 1, pin });
+  const consoleUrl = sessionHost + (pin ? `/?pin=${encodeURIComponent(pin)}` : '');
+  await win.loadURL(consoleUrl);
   return { port: res.port, primary: res.primary, urls: res.urls, keypost: !!keypostPath };
 });
 
 ipcMain.handle('join-session', async (_e, opts = {}) => {
   const host = opts.host;
+  const pin = String(opts.pin || '').trim();
   const args = ['--host', host, '--name', opts.name || 'backup', '--speed', String(opts.speed || 1)];
   if (opts.target) args.push('--target', opts.target);
+  if (pin) args.push('--pin', pin);
   spawnAgent(args);
   sessionActive = true; sessionMode = 'join';
   sessionHost = host;
   joinedQuery = { host, target: opts.target || '', keypost: keypostPath ? '1' : '0' };
   createHud();
   updateTray();
+  saveConfig({ ...loadConfig(), host, target: opts.target || '', speed: opts.speed || 1, name: opts.name || 'backup', pin });
   await win.loadFile(path.join(__dirname, 'joined.html'), { query: joinedQuery });
   return { ok: true, keypost: !!keypostPath };
 });

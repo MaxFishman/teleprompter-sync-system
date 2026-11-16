@@ -3,6 +3,21 @@
 All notable changes to **Teleprompter Sync System (TSS)** are recorded here.
 Format based on [Keep a Changelog](https://keepachangelog.com/). Dates are ISO (YYYY-MM-DD).
 
+## [1.4.0] - 2026-11-16
+
+### Added
+- **Auto-scroll** — a WPM-style crawl that ticks scroll to every rig at an adjustable rate
+  (lines/min), with play/pause. (`public/index.html`)
+- **Join PIN** — the host can set a session PIN; agents and controllers must present it, and the
+  console shows an unlock gate. Server-enforced on `/events`, `/cmd`, `/arm`, `/rig`.
+  (`server.js`, `agent.js`, `public/index.html`, `electron/`)
+- **Per-rig enable/disable** — toggle any rig out of the sync set from the RIGS panel; the server
+  skips disabled rigs for key/mouse while keeping them live. (`server.js`, `public/index.html`)
+- **App picker** — the launch screen lists running apps (a datalist) so you pick instead of typing.
+  (`electron/main.js`, `electron/launch.html`)
+- **Remembers your last session** — target app, speed, host, rig name, and PIN are saved and
+  prefilled next launch. (`electron/main.js`, `electron/launch.html`)
+
 ## [1.3.0] - 2026-11-16
 
 ### Added

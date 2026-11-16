@@ -9,4 +9,6 @@ contextBridge.exposeInMainWorld('tss', {
   downloadUpdate: (url) => ipcRenderer.invoke('download-update', url),
   onUpdateProgress: (cb) => ipcRenderer.on('update-progress', (_e, p) => cb(p)),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
+  getConfig: () => ipcRenderer.invoke('get-config'),
+  listApps: () => ipcRenderer.invoke('list-apps'),
 });

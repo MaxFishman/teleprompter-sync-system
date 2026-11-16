@@ -374,6 +374,47 @@
     font-size:12px; color:var(--ink-faint); letter-spacing:.02em; }
   .credit b { color:var(--ink-dim); font-weight:600; }
 
+  /* per-rig enable toggle */
+  .rig.off { opacity:.5; }
+  .rigtog { -webkit-appearance:none; appearance:none; cursor:pointer; flex:none; margin-left:4px;
+    width:40px; height:23px; border-radius:12px; background:#2a2f36; border:1px solid var(--hair); position:relative; transition:.15s; }
+  .rigtog::after { content:''; position:absolute; top:2px; left:2px; width:17px; height:17px; border-radius:50%;
+    background:#6b7580; transition:.15s; }
+  .rigtog.on { background:#234a38; border-color:#2b5f45; }
+  .rigtog.on::after { left:19px; background:var(--link); box-shadow:0 0 8px var(--link-glow); }
+
+  /* auto-scroll */
+  .auto-row { display:flex; align-items:center; gap:12px; }
+  .auto-play { -webkit-appearance:none; appearance:none; cursor:pointer; flex:none; display:flex; align-items:center; gap:9px;
+    padding:11px 17px; border-radius:11px; border:1px solid var(--hair); font-family:var(--sans); font-size:14px;
+    background:linear-gradient(180deg,#262c34,#1a1f26); color:var(--ink); }
+  .auto-play.on { background:linear-gradient(180deg,var(--amber-soft),var(--amber)); color:#1a1205; border-color:transparent; }
+  .ap-ico { width:0; height:0; border-left:12px solid currentColor; border-top:7px solid transparent; border-bottom:7px solid transparent; }
+  .auto-play.on .ap-ico { width:12px; height:14px; border:0; position:relative; }
+  .auto-play.on .ap-ico::before, .auto-play.on .ap-ico::after { content:''; position:absolute; top:0; width:4px; height:14px; background:currentColor; border-radius:1px; }
+  .auto-play.on .ap-ico::before { left:0; } .auto-play.on .ap-ico::after { right:0; }
+  .auto-rate { flex:1; display:flex; align-items:center; gap:10px; justify-content:flex-end; }
+  .auto-val { font-family:var(--mono); color:var(--amber-soft); display:flex; flex-direction:column; align-items:center;
+    line-height:1.05; min-width:54px; text-align:center; }
+  .auto-val b { font-size:20px; font-weight:600; } .auto-val small { font-size:9px; color:var(--ink-faint); }
+
+  /* PIN gate overlay */
+  .pin-gate { position:fixed; inset:0; z-index:100; display:none; align-items:center; justify-content:center;
+    background:rgba(8,10,13,.86); backdrop-filter:blur(8px); padding:24px; }
+  .pin-gate.show { display:flex; }
+  .pin-box { width:100%; max-width:340px; text-align:center;
+    background:linear-gradient(180deg,var(--panel-2),var(--panel-1)); border:1px solid var(--hair);
+    border-radius:18px; padding:30px 26px; box-shadow:0 40px 80px -40px #000; }
+  .pin-box h3 { font-size:17px; font-weight:650; margin-bottom:6px; }
+  .pin-box p { font-size:13px; color:var(--ink-dim); margin-bottom:18px; }
+  .pin-box input { width:100%; text-align:center; font-family:var(--mono); font-size:24px; letter-spacing:.3em;
+    color:var(--ink); background:var(--well); border:1px solid var(--hair); border-radius:12px; padding:14px; outline:none; }
+  .pin-box input:focus { border-color:var(--amber); box-shadow:0 0 0 3px rgba(244,168,54,.14); }
+  .pin-box .pin-err { color:#ff8a86; font-size:12.5px; min-height:16px; margin-top:10px; }
+  .pin-box button { width:100%; margin-top:6px; min-height:48px; cursor:pointer; border:0; border-radius:12px;
+    font-family:var(--sans); font-size:15px; font-weight:600; color:#1a1205;
+    background:linear-gradient(180deg,var(--amber-soft),var(--amber)); }
+
   /* phones: make the lower transport keys a 2×2 grid so each is bigger */
   @media (max-width:520px){
     .rowkeys { grid-template-columns:repeat(2,1fr); }
@@ -436,6 +477,16 @@
   </div>
 
   <div class="toasts" id="toasts"></div>
+
+  <div class="pin-gate" id="pinGate">
+    <form class="pin-box" id="pinForm">
+      <h3>Session locked</h3>
+      <p>Enter the PIN shown on the host to control this session.</p>
+      <input id="pinInput" type="text" inputmode="numeric" autocomplete="off" placeholder="••••" maxlength="12" />
+      <div class="pin-err" id="pinErr"></div>
+      <button type="submit">Unlock</button>
+    </form>
+  </div>
 
   <div class="warn" id="warn">
     <span class="l"></span>
@@ -511,6 +562,20 @@
         <div class="body"><div id="rigs"><div class="empty">Waiting for a rig to come online. Start <code style="font-family:var(--mono)">agent.js</code> on each laptop.</div></div></div>
       </div>
 
+      <div class="card reveal d2">
+        <h2>AUTO-SCROLL</h2>
+        <div class="body">
+          <div class="auto-row">
+            <button class="auto-play" id="autoPlay"><span class="ap-ico"></span><span id="autoLabel">Start</span></button>
+            <div class="auto-rate">
+              <button class="sm-btn" id="autoSlower" aria-label="slower">−</button>
+              <div class="auto-val"><b id="autoVal">120</b><small>lines / min</small></div>
+              <button class="sm-btn" id="autoFaster" aria-label="faster">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="card reveal d2" id="pointerCard">
         <h2>POINTER</h2>
         <div class="body">
@@ -568,6 +633,25 @@
   const logEl = document.getElementById('log');
   const jog = document.getElementById('jogHead');
 
+  // session PIN (host console receives it via ?pin=; remote controllers enter it)
+  let sessionPin = new URLSearchParams(location.search).get('pin') || '';
+  let pinValidated = false;
+  function withPin(o){ o = o || {}; if (sessionPin) o.pin = sessionPin; return o; }
+  const pinGate = document.getElementById('pinGate');
+  const pinForm = document.getElementById('pinForm');
+  const pinInput = document.getElementById('pinInput');
+  const pinErr = document.getElementById('pinErr');
+  async function validatePin(pin){
+    try { const r = await fetch('/pincheck', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ pin }) }); const j = await r.json(); return !!j.ok; }
+    catch (_) { return false; }
+  }
+  pinForm.addEventListener('submit', async (e) => {
+    e.preventDefault(); pinErr.textContent = '';
+    const pin = pinInput.value.trim();
+    if (await validatePin(pin)){ sessionPin = pin; pinValidated = true; pinGate.classList.remove('show'); }
+    else { pinErr.textContent = 'Wrong PIN — try again.'; pinInput.value = ''; pinInput.focus(); }
+  });
+
   // --- jog rail (local echo of scroll direction — nods to motion feedback) ---
   let jogPos = 50; // percent
   const THROW = { ArrowUp:-5, ArrowDown:5, PageUp:-16, PageDown:16, Home:-100, End:100 };
@@ -600,7 +684,7 @@
     const t0 = performance.now();
     try {
       const r = await fetch('/cmd', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ type:'key', code }) });
+        body: JSON.stringify(withPin({ type:'key', code })) });
       await r.json();
       msEl.textContent = Math.round(performance.now() - t0) + 'ms';
     } catch (_) { msEl.textContent = 'err'; }
@@ -677,7 +761,7 @@
   }
   armBtn.addEventListener('click', () => {
     const next = !armed; setArmedUI(next);
-    fetch('/arm', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ armed: next }) }).catch(() => {});
+    fetch('/arm', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(withPin({ armed: next })) }).catch(() => {});
     toast(next ? 'Armed — live' : 'Disarmed — safe', next ? 'ok' : 'warn');
   });
   function updateSync(s){
@@ -688,20 +772,29 @@
     else { syncChip.classList.add('pending'); syncText.textContent = 'SYNCING'; }
   }
   function rigRow(a){
-    return '<div class="rig" data-rig="' + a.id + '"><span class="l' + (a.stale ? ' stale' : '') + '"></span>' +
+    return '<div class="rig' + (a.enabled === false ? ' off' : '') + '" data-rig="' + a.id + '"><span class="l' + (a.stale ? ' stale' : '') + '"></span>' +
       '<div class="meta"><div class="nm">' + esc(a.name) + '</div>' +
       '<div class="ip">' + esc(a.ip || '—') + ' · <span class="lat">' + (a.latency != null ? a.latency + ' ms' : '') + '</span></div></div>' +
       '<div class="spd" data-id="' + a.id + '">' +
         '<button class="step" data-d="-1" aria-label="slower">−</button>' +
         '<span class="sv">' + (a.speed || 1) + '<small>lines</small></span>' +
         '<button class="step" data-d="1" aria-label="faster">+</button>' +
-      '</div></div>';
+      '</div>' +
+      '<button class="rigtog' + (a.enabled === false ? '' : ' on') + '" data-tog="' + a.id + '" aria-label="enable or disable rig"></button>' +
+      '</div>';
   }
 
   let lastSig = '', prevIds = new Set(), prevNames = {}, prevInit = false;
   async function poll(){
     let s;
     try { const r = await fetch('/status'); s = await r.json(); } catch (_) { return; }
+    // PIN gate: lock control until the right PIN is provided (host passes it via ?pin=)
+    if (s.pinRequired && !pinValidated){
+      if (sessionPin){
+        if (await validatePin(sessionPin)){ pinValidated = true; pinGate.classList.remove('show'); }
+        else { sessionPin = ''; pinGate.classList.add('show'); }
+      } else { pinGate.classList.add('show'); }
+    } else if (!s.pinRequired){ pinValidated = true; pinGate.classList.remove('show'); }
     rigCount.textContent = s.count;
     if (s.count > 0){ linkLamp.classList.add('link'); linkText.textContent = 'linked'; }
     else { linkLamp.classList.remove('link'); linkText.textContent = 'no rigs linked'; }
@@ -727,11 +820,22 @@
       const el = rigsEl.querySelector('.rig[data-rig="' + a.id + '"]'); if (!el) return;
       const lamp = el.querySelector('.l'); if (lamp) lamp.classList.toggle('stale', !!a.stale);
       const lat = el.querySelector('.lat'); if (lat) lat.textContent = a.latency != null ? a.latency + ' ms' : '';
+      const tg = el.querySelector('.rigtog'); if (tg){ tg.classList.toggle('on', a.enabled !== false); el.classList.toggle('off', a.enabled === false); }
     });
   }
 
   // change a rig's scroll speed (delegated — list is rebuilt on poll)
   rigsEl.addEventListener('click', (e) => {
+    const tog = e.target.closest('.rigtog');
+    if (tog){
+      const id = Number(tog.dataset.tog);
+      const enabled = !tog.classList.contains('on');
+      tog.classList.toggle('on', enabled);
+      const row = tog.closest('.rig'); if (row) row.classList.toggle('off', !enabled);
+      fetch('/rig', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(withPin({ id, enabled })) }).catch(() => {});
+      toast((prevNames[id] || 'rig') + (enabled ? ' enabled' : ' disabled'), enabled ? 'ok' : 'warn');
+      return;
+    }
     const step = e.target.closest('.step'); if (!step) return;
     const box = step.closest('.spd'); const id = Number(box.dataset.id);
     const sv = box.querySelector('.sv');
@@ -741,7 +845,7 @@
     sv.firstChild.textContent = String(next);          // optimistic
     lastSig = '';                                       // let next poll confirm
     fetch('/cmd', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ type:'speed', id, value: next }) }).catch(() => {});
+      body: JSON.stringify(withPin({ type:'speed', id, value: next })) }).catch(() => {});
   });
   function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   poll(); setInterval(poll, 1200);
@@ -801,7 +905,7 @@
   let lastNx = 0.5, lastNy = 0.5;           // last mirror position (for click buttons)
 
   function postCmd(o){ fetch('/cmd', { method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify(o) }).catch(() => {}); }
+    body: JSON.stringify(withPin(o)) }).catch(() => {}); }
   function txFlash(){ tx.classList.add('fire'); setTimeout(() => tx.classList.remove('fire'), 120); }
   function mouseCmd(o){ if (!armed) return; o.type = 'mouse'; postCmd(o); txFlash(); }
   function setDot(nx, ny){ padDot.style.left = (nx*100)+'%'; padDot.style.top = (ny*100)+'%'; }
@@ -856,6 +960,24 @@
   }
   clickL.addEventListener('click', () => clickBtn('left', clickL));
   clickR.addEventListener('click', () => clickBtn('right', clickR));
+
+  // --- auto-scroll (WPM crawl): ticks ArrowDown to every rig at a set rate ---
+  let autoOn = false, autoTimer = null, autoRate = 120; // lines / min
+  const autoPlay = document.getElementById('autoPlay');
+  const autoValEl = document.getElementById('autoVal');
+  const autoLabel = document.getElementById('autoLabel');
+  function autoTick(){ if (armed) send('ArrowDown'); }
+  function setAuto(on){
+    autoOn = on;
+    autoPlay.classList.toggle('on', on);
+    autoLabel.textContent = on ? 'Stop' : 'Start';
+    clearInterval(autoTimer);
+    if (on) autoTimer = setInterval(autoTick, Math.max(100, Math.round(60000 / autoRate)));
+  }
+  function setRate(r){ autoRate = Math.max(20, Math.min(600, r)); autoValEl.textContent = autoRate; if (autoOn) setAuto(true); }
+  autoPlay.addEventListener('click', () => setAuto(!autoOn));
+  document.getElementById('autoSlower').addEventListener('click', () => setRate(autoRate - 20));
+  document.getElementById('autoFaster').addEventListener('click', () => setRate(autoRate + 20));
 
   // --- keep the screen awake while this device is a controller ---
   let wakeLock = null;
