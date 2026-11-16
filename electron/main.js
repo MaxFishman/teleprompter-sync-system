@@ -381,8 +381,13 @@ ipcMain.handle('host-session', async (_e, opts = {}) => {
   registerHotkeys();
   createHud();
   updateTray();
-  saveConfig({ ...loadConfig(), target: opts.target || '', speed: opts.speed || 1, pin, keymap: opts.keymap || {} });
-  const consoleUrl = sessionHost + (pin ? `/?pin=${encodeURIComponent(pin)}` : '');
+  const cfg = loadConfig();
+  const firstRun = !cfg.tourSeen;   // show the guided tour the first time the console ever opens
+  saveConfig({ ...cfg, target: opts.target || '', speed: opts.speed || 1, pin, keymap: opts.keymap || {}, tourSeen: true });
+  const q = new URLSearchParams();
+  if (pin) q.set('pin', pin);
+  if (firstRun) q.set('tour', '1');
+  const consoleUrl = sessionHost + (q.toString() ? `/?${q.toString()}` : '');
   await win.loadURL(consoleUrl);
   return { port: res.port, primary: res.primary, urls: res.urls, keypost: !!keypostPath };
 });

@@ -7,7 +7,7 @@
 No cloud. No subscription. No drift.
 
 [![macOS](https://img.shields.io/badge/macOS-11%2B-0b0e12?logo=apple&logoColor=f4a836)](https://github.com/MaxFishman/teleprompter-sync-system/releases/latest)
-[![version](https://img.shields.io/badge/version-1.7.0-f4a836)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-1.10.0-f4a836)](CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-MIT-53e08a)](LICENSE)
 [![built for](https://img.shields.io/badge/built%20for-live%20production-7e8893)](#why-tss)
 
@@ -39,6 +39,9 @@ Every serious live broadcast runs a **backup teleprompter** in case the primary 
 | 🛰️ **Local network only** | Everything stays on your Wi-Fi/LAN. No accounts, no servers, no data leaves the room. |
 | ✅ **Live sync confidence** | Every rig acknowledges each command — IN SYNC / DRIFT status, per-rig latency, and connect/drop alerts. |
 | 🔐 **Locked & armed** | A session PIN plus arm/disarm keep random devices and stray keys off air. |
+| 🎬 **Roll & instant all-stop** | A 3·2·1 roll countdown starts every rig together; one panic key halts them all. |
+| 🔦 **Identify any rig** | Beep + banner a specific laptop so you always know which physical machine is which. |
+| 🧭 **Guided first-run tour** | A built-in walkthrough points out every control the first time you open the console. |
 
 ## A closer look
 
@@ -49,6 +52,11 @@ Every control lives in one window, and every move is mirrored to each rig. Here 
 
 Oversized keys drive line scroll, Page Up/Down, and jump to top/bottom — fired to every rig the instant you press, by touch or keyboard.
 
+### Roll & all-stop — start together, stop instantly
+<img src="assets/features/rollstop.png" alt="Roll countdown and All-stop buttons" width="560" />
+
+**Roll** runs a 3·2·1 countdown then starts every rig together; **All-stop** halts the auto-scroll crawl and pauses every rig on the spot — your panic button. Keys `R` and `Esc`.
+
 ### Master speed — set the pace for all rigs
 <img src="assets/features/speed.png" alt="Master speed module with level meter" width="560" />
 
@@ -58,6 +66,11 @@ One control sets how far every rig scrolls per press, with a live level meter. T
 <img src="assets/features/rigs.png" alt="Per-rig speed stepper" width="500" />
 
 A live list of connected rigs, each with its own speed stepper — so two teleprompter apps that scroll at different rates still stay line-for-line.
+
+### Identify — find the right laptop
+<img src="assets/features/identify.png" alt="RIGS panel with per-rig identify button" width="500" />
+
+Every rig shows live latency and a sparkline. The 🔦 button makes that physical laptop **beep and flash a banner**, so you always know which machine is which — and the toggle drops a rig from the sync set without disconnecting it.
 
 ### Pointer — mirror the mouse
 <img src="assets/features/pointer.png" alt="Pointer pad with Mirror and Trackpad modes" width="420" />
@@ -107,6 +120,16 @@ Scan the QR and your phone becomes a full-screen rocker — scroll, page, play, 
 <img src="assets/features/mini.png" alt="Mini controller" width="190" />
 
 A tiny always-on-top transport (**⌘⇧M**), **global hotkeys** that work with the console unfocused, and a **menu-bar tray** that keeps hosting in the background.
+
+### Learn it in a minute — guided tour
+<img src="assets/features/tour.png" alt="First-run guided tour spotlighting the Roll and All-stop controls" width="640" />
+
+The first time you open the console, a built-in walkthrough spotlights each control in turn — transport, roll/all-stop, speed, auto-scroll, your rigs, sync state, arm and more. Skip or step through at your pace; replay it any time.
+
+### Every shortcut at a glance
+<img src="assets/features/shortcuts.png" alt="Keyboard shortcut cheat-sheet overlay" width="420" />
+
+Press `?` for a cheat-sheet of every console and system-wide shortcut — and a one-click **Replay tour**.
 
 ## Quick start
 

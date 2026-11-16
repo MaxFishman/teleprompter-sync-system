@@ -3,6 +3,20 @@
 All notable changes to **Teleprompter Sync System (TSS)** are recorded here.
 Format based on [Keep a Changelog](https://keepachangelog.com/). Dates are ISO (YYYY-MM-DD).
 
+## [1.10.0] - 2026-11-16
+
+### Added
+- **Guided first-run tour** — the first time the console opens, a coach-mark walkthrough spotlights
+  each control in turn (transport, roll/all-stop, speed, auto-scroll, rigs, sync, arm, join). It's
+  skippable, keyboard-navigable (← → / Esc), and replayable any time from the `?` shortcut sheet.
+  The app shows it once (tracked in its config); a browser falls back to local storage.
+  (`public/index.html`, `electron/main.js`)
+
+### Changed
+- **README + website** now document and screenshot the newer features — roll countdown, all-stop,
+  identify rig, the shortcut cheat-sheet, and the guided tour. (`README.md`, `docs/index.html`,
+  `assets/features/`, `docs/features/`)
+
 ## [1.9.0] - 2026-11-16
 
 ### Added

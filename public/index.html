@@ -562,6 +562,35 @@
     border-radius:9px; background:#171c22; border:1px solid var(--hair); color:var(--ink-dim); font-size:16px; font-weight:700;
     display:flex; align-items:center; justify-content:center; }
   .helpbtn:hover { color:var(--amber-soft); box-shadow:0 0 0 1px var(--amber) inset; }
+
+  /* --- first-run guided tour (coach-marks over the live UI) --- */
+  .tour { position:fixed; inset:0; z-index:70; display:none; }
+  .tour.show { display:block; }
+  .tour-spot { position:fixed; border-radius:14px; pointer-events:none;
+    box-shadow:0 0 0 9999px rgba(6,8,11,.74), 0 0 0 1px var(--amber) inset, 0 0 26px var(--amber-glow);
+    transition:left .32s cubic-bezier(.3,.8,.25,1), top .32s cubic-bezier(.3,.8,.25,1),
+      width .32s cubic-bezier(.3,.8,.25,1), height .32s cubic-bezier(.3,.8,.25,1), opacity .2s; }
+  .tour-card { position:fixed; width:min(362px,92vw); z-index:1;
+    background:linear-gradient(180deg,var(--panel-2),var(--panel-1));
+    border:1px solid var(--hair); border-radius:14px; box-shadow:0 30px 80px -30px #000; padding:18px 20px;
+    transition:top .32s cubic-bezier(.3,.8,.25,1), left .32s cubic-bezier(.3,.8,.25,1); }
+  .tour-step { font-family:var(--mono); font-size:11px; letter-spacing:.14em; color:var(--amber-soft); }
+  .tour-card h4 { margin:6px 0 7px; font-size:16px; color:var(--ink); font-weight:600; }
+  .tour-card p { margin:0; font-size:13.5px; line-height:1.5; color:var(--ink-dim); }
+  .tour-nav { display:flex; align-items:center; gap:10px; margin-top:18px; }
+  .tour-skip { -webkit-appearance:none; appearance:none; cursor:pointer; font-family:var(--sans); font-size:12.5px;
+    color:var(--ink-faint); background:transparent; border:0; padding:0; }
+  .tour-skip:hover { color:var(--ink-dim); }
+  .tour-dots { flex:1; display:flex; justify-content:center; gap:6px; }
+  .tour-dots i { width:6px; height:6px; border-radius:50%; background:#2a3038; display:block; transition:background .2s; }
+  .tour-dots i.on { background:var(--amber); box-shadow:0 0 7px var(--amber-glow); }
+  .tour-btns { display:flex; gap:8px; }
+  .tour-btns button { -webkit-appearance:none; appearance:none; cursor:pointer; font-family:var(--sans); font-size:13px;
+    border-radius:9px; padding:8px 15px; border:1px solid var(--hair); background:#171c22; color:var(--ink-dim); }
+  .tour-btns button:hover { box-shadow:0 0 0 1px var(--amber) inset; color:var(--ink); }
+  .tour-btns .tour-back[hidden] { display:none; }
+  .tour-btns .tour-next { background:linear-gradient(180deg,var(--amber-soft),var(--amber)); color:#1a1205; border-color:#5a4418; font-weight:600; }
+  .tour-btns .tour-next:hover { color:#1a1205; }
 </style>
 </head>
 <body>
@@ -786,7 +815,10 @@
         <div class="cheat-row"><span>Mini controller</span><kbd>⌘⇧M</kbd></div>
       </div>
 
-      <button class="cheat-x" id="cheatClose">Close</button>
+      <div style="display:flex; gap:10px; margin-top:22px;">
+        <button class="cheat-x" id="tourReplay" style="margin-top:0">↻ Replay tour</button>
+        <button class="cheat-x" id="cheatClose" style="margin-top:0">Close</button>
+      </div>
     </div>
   </div>
 
@@ -794,6 +826,24 @@
   <div class="overlay" id="slate" aria-hidden="true">
     <div class="slate-n" id="slateN">3</div>
     <div class="slate-sub">ROLL IN…</div>
+  </div>
+
+  <!-- first-run guided tour -->
+  <div class="tour" id="tour" aria-hidden="true">
+    <div class="tour-spot" id="tourSpot"></div>
+    <div class="tour-card" id="tourCard" role="dialog" aria-modal="true" aria-label="Guided tour">
+      <div class="tour-step" id="tourStep"></div>
+      <h4 id="tourTitle"></h4>
+      <p id="tourBody"></p>
+      <div class="tour-nav">
+        <button class="tour-skip" id="tourSkip">Skip tour</button>
+        <div class="tour-dots" id="tourDots"></div>
+        <div class="tour-btns">
+          <button class="tour-back" id="tourBack">Back</button>
+          <button class="tour-next" id="tourNext">Next</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="legend reveal d3">
@@ -886,6 +936,7 @@
   // --- wheel ---
   let wheelLock = 0;
   addEventListener('wheel', (e) => {
+    if (tourActive) return;            // tour is up — don't transmit
     const now = performance.now();
     if (now - wheelLock < 45) return;
     wheelLock = now;
@@ -1321,6 +1372,84 @@
       e.preventDefault(); blackout();
     }
   });
+
+  // --- first-run guided tour (coach-marks over the live UI) ---
+  const TOUR = [
+    { sel:null, title:'Welcome to TSS', body:'This console drives scroll, paging and playback on every connected rig at once — in sync. Here’s the 60-second tour. Use ← → or the buttons; Esc skips.' },
+    { sel:'.console .rocker', title:'Scroll the script', body:'The big rocker nudges every rig a line at a time. Keys ↑ ↓ and the mouse wheel do the same.' },
+    { sel:'.rowkeys', title:'Page & jump', body:'Page up or down, or jump straight to the top or bottom of the script. Keys: PgUp, PgDn, Home, End.' },
+    { sel:'.playbar', title:'Play / pause', body:'Toggle a rolling teleprompter on every rig at once — the Space bar, or this button.' },
+    { sel:'.xport', title:'Roll & All-stop', body:'Roll runs a 3·2·1 countdown, then starts every rig together (R). All-stop halts the crawl and pauses every rig instantly — your panic button (Esc).' },
+    { sel:'.speedmod', title:'Master speed', body:'Set how many lines each press advances, for all rigs together. Keys − and =.' },
+    { sel:'#autoCard', title:'Auto-scroll', body:'A hands-off WPM-style crawl. Start it and TSS ticks the scroll for you at the rate you set.' },
+    { sel:'#rigsCard', title:'Your rigs', body:'Each connected laptop shows here with live latency and a sparkline. 🔦 makes a laptop beep + flash so you can spot it, the toggle drops a rig from the sync set, and ± trims its own speed.' },
+    { sel:'#sync', title:'Stay in sync', body:'This chip reads IN SYNC / SYNCING / DRIFT from every rig’s acknowledgements. Glance here before you go live.' },
+    { sel:'#armBtn', title:'Arm & alarm', body:'ARMED gates all input — disarmed, nothing reaches air. The bell beeps and flashes if a rig drifts or drops.' },
+    { sel:'.card.join', title:'Bring in more controllers', body:'Scan this QR on a phone or tablet (same Wi-Fi) for a second controller, or add backup laptops with the command below.' },
+    { sel:null, title:'You’re set', body:'Press ? any time for the shortcut sheet — you can replay this tour from there. Break a leg.' },
+  ];
+  const tour = document.getElementById('tour'), tourCard = document.getElementById('tourCard'), tourSpot = document.getElementById('tourSpot');
+  const tourStepEl = document.getElementById('tourStep'), tourTitleEl = document.getElementById('tourTitle'), tourBodyEl = document.getElementById('tourBody');
+  const tourBackBtn = document.getElementById('tourBack'), tourNextBtn = document.getElementById('tourNext'), tourDotsEl = document.getElementById('tourDots');
+  let tourIdx = 0, tourActive = false;
+  TOUR.forEach(() => tourDotsEl.appendChild(document.createElement('i')));
+  const tourDotEls = [...tourDotsEl.children];
+  function layoutTour(){
+    const s = TOUR[tourIdx], el = s.sel ? document.querySelector(s.sel) : null;
+    const ch = tourCard.offsetHeight, cw = tourCard.offsetWidth, m = 16;
+    if (el){
+      const r = el.getBoundingClientRect(), pad = 8;
+      tourSpot.style.opacity = '1';
+      tourSpot.style.left = (r.left - pad) + 'px'; tourSpot.style.top = (r.top - pad) + 'px';
+      tourSpot.style.width = (r.width + pad * 2) + 'px'; tourSpot.style.height = (r.height + pad * 2) + 'px';
+      let top = (innerHeight - r.bottom > ch + m) ? r.bottom + m
+        : (r.top > ch + m) ? r.top - ch - m
+        : Math.max(12, innerHeight - ch - 12);
+      let left = Math.min(Math.max(12, r.left + r.width / 2 - cw / 2), innerWidth - cw - 12);
+      tourCard.style.top = top + 'px'; tourCard.style.left = left + 'px';
+    } else {
+      tourSpot.style.opacity = '0'; tourSpot.style.width = '0'; tourSpot.style.height = '0';
+      tourSpot.style.left = (innerWidth / 2) + 'px'; tourSpot.style.top = (innerHeight / 2) + 'px';
+      tourCard.style.top = Math.max(12, innerHeight / 2 - ch / 2) + 'px'; tourCard.style.left = (innerWidth / 2 - cw / 2) + 'px';
+    }
+  }
+  function renderTour(){
+    const s = TOUR[tourIdx];
+    tourStepEl.textContent = (tourIdx + 1) + ' / ' + TOUR.length;
+    tourTitleEl.textContent = s.title; tourBodyEl.textContent = s.body;
+    tourDotEls.forEach((d, i) => d.classList.toggle('on', i === tourIdx));
+    tourBackBtn.hidden = tourIdx === 0;
+    tourNextBtn.textContent = tourIdx === TOUR.length - 1 ? 'Done' : 'Next';
+    const el = s.sel ? document.querySelector(s.sel) : null;
+    if (el) el.scrollIntoView({ block:'center', inline:'nearest' });
+    layoutTour();
+  }
+  function startTour(){ showCheat(false); cancelRoll(); tourIdx = 0; tourActive = true; tour.classList.add('show'); requestAnimationFrame(renderTour); }
+  function endTour(){ tourActive = false; tour.classList.remove('show'); try { localStorage.setItem('tssTour', '1'); } catch (_) {} }
+  function tourNext(){ if (tourIdx >= TOUR.length - 1){ endTour(); return; } tourIdx++; renderTour(); }
+  function tourBack(){ if (tourIdx > 0){ tourIdx--; renderTour(); } }
+  tourNextBtn.addEventListener('click', tourNext);
+  tourBackBtn.addEventListener('click', tourBack);
+  document.getElementById('tourSkip').addEventListener('click', endTour);
+  document.getElementById('tourReplay').addEventListener('click', () => { showCheat(false); startTour(); });
+  addEventListener('resize', () => { if (tourActive) layoutTour(); });
+  addEventListener('scroll', () => { if (tourActive) layoutTour(); }, true);
+  // While the tour is up, intercept nav/transport keys in the capture phase (beats the transport handler).
+  addEventListener('keydown', (e) => {
+    if (!tourActive) return;
+    const c = e.code;
+    // stopImmediatePropagation: same-target window listeners (transport/speed/?) must NOT also fire
+    if (c === 'ArrowRight' || c === 'Enter' || c === 'NumpadEnter'){ e.preventDefault(); e.stopImmediatePropagation(); tourNext(); }
+    else if (c === 'ArrowLeft'){ e.preventDefault(); e.stopImmediatePropagation(); tourBack(); }
+    else if (c === 'Escape'){ e.preventDefault(); e.stopImmediatePropagation(); endTour(); }
+    else if (['ArrowUp','ArrowDown','PageUp','PageDown','Home','End','Space','Minus','Equal','KeyR','Slash'].includes(c)){ e.preventDefault(); e.stopImmediatePropagation(); }
+  }, true);
+  // Kick off on first run: the app passes ?tour=1 the first time; a browser falls back to localStorage.
+  (function(){
+    const forced = new URLSearchParams(location.search).get('tour') === '1';
+    let seen = false; try { seen = localStorage.getItem('tssTour') === '1'; } catch (_) {}
+    if ((forced || !seen) && innerWidth >= 760 && innerHeight >= 520) setTimeout(() => { if (!tourActive) startTour(); }, 800);
+  })();
 
   // --- power on ---
   requestAnimationFrame(() => document.body.classList.add('on'));
