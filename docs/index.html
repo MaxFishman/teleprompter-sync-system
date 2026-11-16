@@ -619,10 +619,10 @@
     <div class="note req">macOS 11 Big Sur or later · Apple&nbsp;silicon (M1 or newer)</div>
     <div class="note">Unsigned build — first launch is right-click → <b>Open</b>. Requires Accessibility permission to send input.</div>
     <div class="note sha" id="shaNote">
-      <span><b>SHA-256</b> · v1.9.0</span>
-      <code id="shaHex">83692a13e9ed2498c94238b1eb83290eeeab416178b227bf85ff1caac910e975</code>
+      <span><b>SHA-256</b> · v1.10.0</span>
+      <code id="shaHex">66301492bc733a1caff0c81d98f97b7651a9d1ea92dc90d1c26ea7ef164c10a3</code>
       <button class="shacopy" id="shaCopy">Copy</button>
-      <span class="shacmd">verify after download: <code>shasum -a 256 Teleprompter-Sync-System-1.9.0.dmg</code></span>
+      <span class="shacmd">verify after download: <code>shasum -a 256 Teleprompter-Sync-System-1.10.0.dmg</code></span>
     </div>
 
     <div class="whatsnew">
@@ -715,10 +715,10 @@
         var dl = (rel.assets || []).reduce(function(s, a){ return s + (a.download_count || 0); }, 0);
         var stat = document.getElementById('relStat');
         if (stat) stat.textContent = 'v' + ver + (dl ? ' · ' + dl.toLocaleString() + ' downloads' : '');
-        // The baked SHA-256 is for v1.9.0 — if a newer build has shipped, hide it
+        // The baked SHA-256 is for v1.10.0 — if a newer build has shipped, hide it
         // rather than show a checksum that won't match the downloaded DMG.
         var sha = document.getElementById('shaNote');
-        if (sha && ver !== '1.9.0') sha.style.display = 'none';
+        if (sha && ver !== '1.10.0') sha.style.display = 'none';
       })
       .catch(function(){});
   })();
