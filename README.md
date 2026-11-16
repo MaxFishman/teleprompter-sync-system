@@ -7,7 +7,7 @@
 No cloud. No subscription. No drift.
 
 [![macOS](https://img.shields.io/badge/macOS-11%2B-0b0e12?logo=apple&logoColor=f4a836)](https://github.com/MaxFishman/teleprompter-sync-system/releases/latest)
-[![version](https://img.shields.io/badge/version-1.10.0-f4a836)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-1.11.0-f4a836)](CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-MIT-53e08a)](LICENSE)
 [![built for](https://img.shields.io/badge/built%20for-live%20production-7e8893)](#why-tss)
 
@@ -42,6 +42,10 @@ Every serious live broadcast runs a **backup teleprompter** in case the primary 
 | 🎬 **Roll & instant all-stop** | A 3·2·1 roll countdown starts every rig together; one panic key halts them all. |
 | 🔦 **Identify any rig** | Beep + banner a specific laptop so you always know which physical machine is which. |
 | 🧭 **Guided first-run tour** | A built-in walkthrough points out every control the first time you open the console. |
+| 🤝 **One operator at a time** | Control handoff + view-only, so a second operator or a phone can watch without fighting for control. |
+| 🎹 **MIDI control** | Map a MIDI controller's keys, pads, and knobs to any TSS action. |
+| ✅ **Pre-show readiness** | One click confirms rigs, sync, arm, permission, and helpers before you go live. |
+| 🔎 **Zero-config join** | Backup rigs discover the host over the network — no IP to type. |
 
 ## A closer look
 
@@ -130,6 +134,26 @@ The first time you open the console, a built-in walkthrough spotlights each cont
 <img src="assets/features/shortcuts.png" alt="Keyboard shortcut cheat-sheet overlay" width="420" />
 
 Press `?` for a cheat-sheet of every console and system-wide shortcut — and a one-click **Replay tour**.
+
+### Pass control cleanly — handoff & view-only
+<img src="assets/features/handoff.png" alt="Command chip showing who is in command, with a take-control button" width="680" />
+
+Only the controller **in command** can drive, so a second operator — or a phone in the gallery — can watch without fighting for control. The header shows who's driving; **Take control** hands it over cleanly, **Go view-only** releases it, and a silent commander auto-releases so nobody gets locked out.
+
+### Drive from a MIDI controller
+<img src="assets/features/midi.png" alt="MIDI mapping page with a Learn button per action" width="420" />
+
+Map a MIDI controller's keys, pads, or knobs to any TSS action — scroll, page, top/bottom, play, roll, all-stop, speed. Click **Learn**, press the control, done. Mappings are saved per device and drive TSS whenever you're in command.
+
+### One-click pre-show readiness
+<img src="assets/features/readiness.png" alt="Pre-show readiness checklist with a Ready to roll verdict" width="460" />
+
+Before you go live, one check confirms rigs are connected, armed, in sync, latency is healthy, you're in command, Accessibility is granted, the mouse helper is built, and a PIN is set — with a clear **Ready to roll** or **Not ready** verdict.
+
+### Join without typing an IP
+<img src="assets/features/discovery.png" alt="Launch screen showing nearby sessions discovered over the network, an accessibility banner, and settings export/import" width="340" />
+
+Hosts announce themselves on the network, so backup rigs just tap a **Nearby session** to join — no IP address to read out. The launch screen also walks you through **Accessibility permission** if it's missing, and you can **export/import** your presets and key maps between machines.
 
 ## Quick start
 
