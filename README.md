@@ -6,12 +6,12 @@
 
 No cloud. No subscription. No drift.
 
-[![macOS](https://img.shields.io/badge/macOS-11%2B-0b0e12?logo=apple&logoColor=f4a836)](https://github.com/__OWNER__/teleprompter-sync-system/releases/latest)
+[![macOS](https://img.shields.io/badge/macOS-11%2B-0b0e12?logo=apple&logoColor=f4a836)](https://github.com/MaxFishman/teleprompter-sync-system/releases/latest)
 [![version](https://img.shields.io/badge/version-1.0.0-f4a836)](CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-MIT-53e08a)](LICENSE)
 [![built for](https://img.shields.io/badge/built%20for-live%20production-7e8893)](#why-tss)
 
-**[⬇ Download for macOS](https://github.com/__OWNER__/teleprompter-sync-system/releases/latest)** · **[Website](https://__OWNER__.github.io/teleprompter-sync-system/)** · **[Changelog](CHANGELOG.md)**
+**[⬇ Download for macOS](https://github.com/MaxFishman/teleprompter-sync-system/releases/latest)** · **[Website](https://MaxFishman.github.io/teleprompter-sync-system/)** · **[Changelog](CHANGELOG.md)**
 
 </div>
 
@@ -40,7 +40,7 @@ Every serious live broadcast runs a **backup teleprompter** in case the primary 
 
 ## Quick start
 
-1. **Download & install** — grab the [latest DMG](https://github.com/__OWNER__/teleprompter-sync-system/releases/latest), drag **Teleprompter Sync System** to Applications, and open it. (First launch of an unsigned app: right-click → **Open**.)
+1. **Download & install** — grab the [latest DMG](https://github.com/MaxFishman/teleprompter-sync-system/releases/latest), drag **Teleprompter Sync System** to Applications, and open it. (First launch of an unsigned app: right-click → **Open**.)
 2. **Host** — on the laptop with the keyboard, choose **Host a session**, type your teleprompter app's name, and hit **Start hosting**. The console opens with a join QR.
 3. **Join** — on each backup laptop, open TSS → **Join a session** → enter the host address shown on the host. On a phone or tablet, just **scan the QR**.
 
@@ -64,7 +64,7 @@ TSS runs a tiny hub on the host over your local network. Commands fan out to eac
 Needs [Node.js](https://nodejs.org) and Xcode command line tools (`xcode-select --install`).
 
 ```bash
-git clone https://github.com/__OWNER__/teleprompter-sync-system.git
+git clone https://github.com/MaxFishman/teleprompter-sync-system.git
 cd teleprompter-sync-system
 npm install
 npm start          # run the app unpackaged
