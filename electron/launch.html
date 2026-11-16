@@ -132,6 +132,39 @@
   .cfgrow button{ cursor:pointer; background:none; border:0; color:var(--ink-faint); font-size:12px; text-decoration:underline; font-family:var(--sans); }
   .cfgrow button:hover{ color:var(--ink-dim); }
 
+  /* setup & permissions guide */
+  .aw-why{ background:none; border:0; cursor:pointer; color:#ff9b95; font-size:12px; text-decoration:underline; font-family:var(--sans); padding:0; margin-top:9px; }
+  .aw-why:hover{ color:#ffb8b3; }
+  .guide{ position:fixed; inset:0; z-index:60; display:flex; align-items:flex-start; justify-content:center;
+    background:rgba(6,8,11,.74); overflow:auto; padding:26px 16px; }
+  .guide-box{ position:relative; width:100%; max-width:520px; margin:auto;
+    background:linear-gradient(180deg,var(--panel-1),#12161b); border:1px solid var(--hair); border-radius:18px;
+    padding:26px 24px 22px; box-shadow:0 30px 70px -30px #000; }
+  .guide-x{ position:absolute; top:13px; right:13px; width:30px; height:30px; border-radius:8px; cursor:pointer;
+    background:var(--panel-2); border:1px solid var(--hair); color:var(--ink-dim); font-size:14px; line-height:1; }
+  .guide-x:hover{ color:var(--ink); }
+  .guide-box h2{ font-size:19px; margin:0 6px 8px 0; color:var(--ink); }
+  .guide-lead{ font-size:13.5px; line-height:1.6; color:var(--ink-dim); margin:0 0 18px; }
+  .guide-steps{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:16px; }
+  .gstep{ display:flex; gap:13px; }
+  .gs-n{ flex:none; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-family:var(--mono); font-size:13px; font-weight:700; color:#1a1205;
+    background:linear-gradient(180deg,var(--amber-soft),var(--amber)); box-shadow:0 0 10px var(--amber-glow); }
+  .gs-body{ flex:1; min-width:0; }
+  .gs-head{ display:flex; align-items:center; gap:10px; }
+  .gs-body h3{ font-size:14.5px; margin:1px 0 5px; color:var(--ink); }
+  .gs-body p{ font-size:13px; line-height:1.6; color:var(--ink-dim); margin:0; }
+  .gs-body b{ color:var(--ink); }
+  .gs-pill{ margin-left:auto; flex:none; font-family:var(--mono); font-size:10px; letter-spacing:.06em; padding:3px 9px;
+    border-radius:20px; border:1px solid var(--hair); color:var(--ink-dim); }
+  .gs-pill.ok{ color:#8ef0b8; border-color:#2b5f45; background:#122a1f; }
+  .gs-pill.need{ color:#ff9b95; border-color:#6a2a2a; background:#241010; }
+  .gs-actions{ display:flex; gap:8px; margin-top:10px; }
+  .gs-actions button{ cursor:pointer; min-height:36px; border-radius:9px; font-family:var(--sans); font-size:12.5px; padding:0 14px; }
+  .gs-open{ color:#1a1205; font-weight:600; border:0; background:linear-gradient(180deg,var(--amber-soft),var(--amber)); }
+  .gs-recheck{ color:var(--ink-dim); background:var(--panel-2); border:1px solid var(--hair); }
+  .guide-foot{ font-size:12px; color:var(--ink-faint); line-height:1.6; margin:18px 0 0; padding-top:14px; border-top:1px solid var(--hair); }
+
   [hidden]{ display:none !important }
 </style>
 </head>
@@ -166,6 +199,7 @@
         <button type="button" class="aw-open" id="axOpen">Open Accessibility settings</button>
         <button type="button" class="aw-recheck" id="axRecheck">Re-check</button>
       </div>
+      <button type="button" class="aw-why" id="axWhy">Why does TSS need this? — full setup guide</button>
     </div>
 
     <div class="presets">
@@ -244,10 +278,50 @@
     <div class="err" id="err"></div>
     <datalist id="appList"></datalist>
     <div class="cfgrow">
+      <button type="button" id="guideOpen">Setup &amp; permissions</button>
       <button type="button" id="cfgExport">Export settings</button>
       <button type="button" id="cfgImport">Import settings</button>
     </div>
     <div style="margin-top:14px;padding-top:16px;border-top:1px solid var(--hair);text-align:center;font-size:12px;color:var(--ink-faint)">Built by <b style="color:var(--ink-dim);font-weight:600">Max Fishman</b></div>
+  </div>
+
+  <!-- Setup & permissions guide -->
+  <div class="guide" id="guide" hidden>
+    <div class="guide-box">
+      <button type="button" class="guide-x" id="guideClose" aria-label="Close">✕</button>
+      <h2>Let TSS control your teleprompter</h2>
+      <p class="guide-lead">TSS drives your teleprompter app for you — typing and clicking into it on every machine, in sync. macOS protects you by asking permission before any app can send keystrokes or mouse to another, so there's a one-time setup. It's quick, and nothing ever leaves your Mac.</p>
+
+      <ol class="guide-steps">
+        <li class="gstep">
+          <div class="gs-n">1</div>
+          <div class="gs-body">
+            <h3>Open it the first time</h3>
+            <p>TSS isn't signed with a paid Apple certificate, so the first launch macOS may call it an "unidentified developer." In <b>Applications</b>, <b>right-click</b> (or Control-click) <b>Teleprompter Sync System</b> → <b>Open</b> → <b>Open</b>. If it's still blocked on newer macOS, open <b>System&nbsp;Settings → Privacy&nbsp;&amp;&nbsp;Security</b>, scroll down, and click <b>Open Anyway</b>. You only do this once.</p>
+          </div>
+        </li>
+        <li class="gstep">
+          <div class="gs-n">2</div>
+          <div class="gs-body">
+            <div class="gs-head"><h3>Allow Accessibility</h3><span class="gs-pill" id="gAxPill">checking…</span></div>
+            <p>This is the one TSS really needs — it's what lets the app send keystrokes and mouse to your teleprompter. Open <b>System&nbsp;Settings → Privacy&nbsp;&amp;&nbsp;Security → Accessibility</b>, then switch on <b>Teleprompter Sync System</b>. If it's already listed but off, toggle it on (or remove and re-add it after an update).</p>
+            <div class="gs-actions">
+              <button type="button" class="gs-open" id="gAxOpen">Open Accessibility settings</button>
+              <button type="button" class="gs-recheck" id="gAxRecheck">Re-check</button>
+            </div>
+          </div>
+        </li>
+        <li class="gstep">
+          <div class="gs-n">3</div>
+          <div class="gs-body">
+            <h3>Say "OK" to Automation if asked</h3>
+            <p>The first time TSS nudges your teleprompter app, macOS may pop up <i>"Teleprompter Sync System wants to control…"</i>. Click <b>OK</b>. You can change it anytime under <b>Privacy&nbsp;&amp;&nbsp;Security → Automation</b>.</p>
+          </div>
+        </li>
+      </ol>
+
+      <p class="guide-foot">Why this is safe: these permissions only let TSS control the apps <b style="color:var(--ink-dim)">you</b> choose, over your local network. No cloud, no account, nothing recorded — the access simply lets one app on your Mac drive another, which is exactly how TSS keeps your rigs in sync.</p>
+    </div>
   </div>
 
 <script>
@@ -406,18 +480,37 @@
     $('update').hidden = false;
   })();
 
-  // --- Accessibility-permission banner ---
+  // --- Accessibility permission: banner + setup guide ---
   async function refreshAx(){
     if (!window.tss || !window.tss.axStatus) return;
     let ok = true; try { ok = await window.tss.axStatus(); } catch (_) {}
     $('axWarn').hidden = !!ok;
+    const pill = $('gAxPill');
+    if (pill){
+      pill.textContent = ok ? 'granted ✓' : 'needed';
+      pill.classList.toggle('ok', !!ok);
+      pill.classList.toggle('need', !ok);
+    }
   }
-  $('axOpen').addEventListener('click', async function(){
+  async function openSettingsAndRecheck(){
     try { await window.tss.axPrompt(); } catch (_) {}
     try { await window.tss.openAccessibility(); } catch (_) {}
     setTimeout(refreshAx, 900);
-  });
+  }
+  $('axOpen').addEventListener('click', openSettingsAndRecheck);
   $('axRecheck').addEventListener('click', refreshAx);
+  $('gAxOpen').addEventListener('click', openSettingsAndRecheck);
+  $('gAxRecheck').addEventListener('click', refreshAx);
+
+  // guide open / close
+  function openGuide(){ $('guide').hidden = false; refreshAx(); }
+  function closeGuide(){ $('guide').hidden = true; }
+  $('guideOpen').addEventListener('click', openGuide);
+  $('axWhy').addEventListener('click', openGuide);
+  $('guideClose').addEventListener('click', closeGuide);
+  $('guide').addEventListener('click', function(e){ if (e.target === $('guide')) closeGuide(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('guide').hidden) closeGuide(); });
+
   document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'visible') refreshAx(); });
   refreshAx();
 
