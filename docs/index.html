@@ -10,6 +10,7 @@
 <meta property="og:type" content="website" />
 <meta property="og:image" content="https://MaxFishman.github.io/teleprompter-sync-system/og.png" />
 <meta name="twitter:card" content="summary_large_image" />
+<script>document.documentElement.classList.add('js')</script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23171c22'/%3E%3Crect x='8' y='10' width='16' height='2.6' rx='1.3' fill='%23f4a836'/%3E%3Crect x='8' y='15' width='16' height='2.6' rx='1.3' fill='%23f4a836' opacity='.6'/%3E%3Crect x='8' y='20' width='16' height='2.6' rx='1.3' fill='%23f4a836' opacity='.32'/%3E%3C/svg%3E" />
 <style>
   :root{
@@ -209,12 +210,18 @@
       .rigs{ animation:hero-par linear both; animation-timeline:scroll(root); animation-range:0 70vh; }
     }
   }
-  @supports (animation-timeline: view()){
-    @media (prefers-reduced-motion: no-preference){
-      .feat .cell, .tour .tourcard, .steps .step, .band, .gallery, .stickywrap{
-        animation:sr-in linear both; animation-timeline:view(); animation-range:entry 0% cover 26%; }
-      .shot{ animation:shot-in linear both; animation-timeline:view(); animation-range:entry 0% cover 42%; }
-    }
+  /* reveal-on-scroll — each section fades + slides in, children staggered
+     (IntersectionObserver-driven; progressive — content is visible without JS) */
+  .js section.io > .wrap > * { opacity:0; transform:translateY(28px);
+    transition:opacity .6s ease, transform .7s cubic-bezier(.2,.8,.25,1); }
+  section.io.shown > .wrap > * { opacity:1; transform:none; }
+  section.io.shown > .wrap > *:nth-child(1){ transition-delay:.03s }
+  section.io.shown > .wrap > *:nth-child(2){ transition-delay:.10s }
+  section.io.shown > .wrap > *:nth-child(3){ transition-delay:.17s }
+  section.io.shown > .wrap > *:nth-child(4){ transition-delay:.24s }
+  section.io.shown > .wrap > *:nth-child(5){ transition-delay:.31s }
+  @media (prefers-reduced-motion: reduce){
+    .js section.io > .wrap > * { opacity:1; transform:none; transition:none; }
   }
 
   /* section-dot navigator */
@@ -314,7 +321,7 @@
   </div>
 </div></header>
 
-<section id="features"><div class="wrap">
+<section class="io" id="features"><div class="wrap">
   <div class="lbl">BUILT FOR THE BACKUP RIG</div>
   <h2>Everything moves together, or it doesn't ship.</h2>
   <p class="sub">TSS is a control surface, not a teleprompter — it drives whatever teleprompter app you already run, on every machine at once.</p>
@@ -353,7 +360,7 @@
   </div>
 </div></section>
 
-<section id="tour"><div class="wrap">
+<section class="io" id="tour"><div class="wrap">
   <div class="lbl">A CLOSER LOOK</div>
   <h2>One surface. Total control.</h2>
   <p class="sub">Every control the operator needs lives in one window — transport, speed, pointer, live rig status, and a join QR — and every move is mirrored to each rig. Here's what that looks like, piece by piece.</p>
@@ -392,7 +399,7 @@
   </div>
 </div></section>
 
-<section id="pro"><div class="wrap">
+<section class="io" id="pro"><div class="wrap">
   <div class="lbl">PRODUCTION-GRADE</div>
   <h2>Built for the room.</h2>
   <p class="sub">The confidence and control a live show needs — know every rig is in step, lock it down, and drive it from anywhere. <span class="swipe">swipe →</span></p>
@@ -424,14 +431,14 @@
   </div>
 </div></section>
 
-<section><div class="wrap">
+<section class="io"><div class="wrap">
   <div class="lbl">NO TERMINAL, NO SETUP</div>
   <h2>Host or join in one tap.</h2>
   <p class="sub">The native macOS app bundles everything — hub, agent, and injector. Pick a role and go; no separate installs, no config files.</p>
   <div class="shot" style="max-width:520px;margin-left:auto;margin-right:auto"><img src="features/launch.png" alt="The TSS Host / Join launch screen" loading="lazy" /></div>
 </div></section>
 
-<section id="how"><div class="wrap">
+<section class="io" id="how"><div class="wrap">
   <div class="lbl">GET RUNNING IN THREE STEPS</div>
   <h2>Host, join, drive.</h2>
   <div class="steps">
@@ -460,7 +467,7 @@
   </div>
 </div></section>
 
-<section id="get"><div class="wrap">
+<section class="io" id="get"><div class="wrap">
   <div class="band">
     <div class="lbl" style="display:block;margin-bottom:8px">READY WHEN THE PRIMARY ISN'T</div>
     <h2>Keep the backup in lockstep.</h2>
@@ -519,6 +526,16 @@
     fit();
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
     setTimeout(fit, 300);
+  })();
+
+  // reveal each section as it scrolls into view (once), with a staggered children fade
+  (function(){
+    var secs = document.querySelectorAll('section.io');
+    if (!('IntersectionObserver' in window)){ secs.forEach(function(s){ s.classList.add('shown'); }); return; }
+    var rev = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ if (e.isIntersecting){ e.target.classList.add('shown'); rev.unobserve(e.target); } });
+    }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+    secs.forEach(function(s){ rev.observe(s); });
   })();
 
   // section-dot navigator — highlight the section currently in view
