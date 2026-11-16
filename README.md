@@ -58,6 +58,7 @@ Every serious live broadcast runs a **backup teleprompter** in case the primary 
 | 🛟 **Self-healing link** | Rigs reconnect automatically after a drop or Wi-Fi blip; a rig that falls behind is flagged **OUT OF SYNC** with one-tap **Re-home** recovery, and a crashed rig agent respawns itself. |
 | 🛑 **Guaranteed critical commands** | All-stop, Roll and Re-home are re-delivered until every rig acks — even one that was mid-reconnect — and never double-fire. |
 | 🗒️ **Session log export** | Download a timestamped timeline of the show — connects, drops, drift, all-stops, re-homes — for post-show review. |
+| 🧩 **Guided permission setup** | A built-in guide walks you through macOS first-run — opening an unsigned app, granting Accessibility (with live status), the Automation prompt — and why each is needed. |
 
 ## A closer look
 
@@ -179,6 +180,11 @@ Before you go live, one check confirms rigs are connected, armed, in sync, laten
 
 Hosts announce themselves on the network, so backup rigs just tap a **Nearby session** to join — no IP address to read out. The launch screen also walks you through **Accessibility permission** if it's missing, and you can **export/import** your presets and key maps between machines.
 
+### Permissions made painless
+<img src="assets/features/setup.png" alt="In-app setup and permissions guide with numbered steps and a live Accessibility status" width="360" />
+
+TSS is unsigned (no paid Apple Developer certificate), so a built-in **setup guide** walks you through the macOS first-run steps — opening the app the first time (right-click → **Open**, or **Open Anyway** on newer macOS), granting **Accessibility** with a live granted/needed status and one-tap buttons, and approving the **Automation** prompt — and explains **why** each is needed: TSS simply drives the teleprompter app you choose, on your local network, nothing leaving your Mac.
+
 ## Quick start
 
 1. **Download & install** — grab the [latest DMG](https://github.com/MaxFishman/teleprompter-sync-system/releases/latest), drag **Teleprompter Sync System** to Applications, and open it. (First launch of an unsigned app: right-click → **Open**.)
@@ -187,7 +193,7 @@ Hosts announce themselves on the network, so backup rigs just tap a **Nearby ses
 
 Drive from the console (or press keys / move the mouse) — every rig follows. That's it.
 
-> **One-time:** macOS will ask for **Accessibility** permission the first time TSS sends input — System Settings → Privacy & Security → Accessibility → enable **Teleprompter Sync System**.
+> **One-time:** macOS will ask for **Accessibility** permission the first time TSS sends input — System Settings → Privacy & Security → Accessibility → enable **Teleprompter Sync System**. The app's built-in **Setup & permissions** guide walks you through this (and the first-launch "unidentified developer" step) with a live status check.
 >
 > **Updates:** TSS checks GitHub for new versions on launch — when one's available you can download and install it right from the app (or **Check for Updates…** in the menu bar).
 
