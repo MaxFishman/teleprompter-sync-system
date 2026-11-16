@@ -6,10 +6,11 @@
 
 No cloud. No subscription. No drift.
 
-[![macOS](https://img.shields.io/badge/macOS-11%2B-0b0e12?logo=apple&logoColor=f4a836)](https://github.com/MaxFishman/teleprompter-sync-system/releases/latest)
-[![version](https://img.shields.io/badge/version-1.11.0-f4a836)](CHANGELOG.md)
-[![license](https://img.shields.io/badge/license-MIT-53e08a)](LICENSE)
-[![built for](https://img.shields.io/badge/built%20for-live%20production-7e8893)](#why-tss)
+[![macOS](https://img.shields.io/badge/macOS-11+-f4a836?labelColor=101317&logo=apple&logoColor=f4a836)](https://github.com/MaxFishman/teleprompter-sync-system/releases/latest)
+[![version](https://img.shields.io/badge/version-1.11.0-f4a836?labelColor=101317)](CHANGELOG.md)
+[![license](https://img.shields.io/badge/license-MIT-53e08a?labelColor=101317)](LICENSE)
+[![local only](https://img.shields.io/badge/network-local%20only-53e08a?labelColor=101317)](#how-it-works)
+[![built for](https://img.shields.io/badge/built%20for-live%20production-7e8893?labelColor=101317)](#why-tss)
 
 **[⬇ Download for macOS](https://github.com/MaxFishman/teleprompter-sync-system/releases/latest)** · **[Website](https://MaxFishman.github.io/teleprompter-sync-system/)** · **[Changelog](CHANGELOG.md)**
 
@@ -26,6 +27,12 @@ Every serious live broadcast runs a **backup teleprompter** in case the primary 
 <div align="center">
 <img src="assets/console.png" alt="The TSS control console" width="88%" />
 </div>
+
+> **◆ Latest improvements**
+>
+> - **🪟 The whole console fits one window** — every control is visible at a glance, so you never scroll to find a button mid-show.
+> - **🖱️ Wheel scroll, on your terms** — a **Wheel drives rigs** toggle (off by default) means scrolling the window never nudges the prompters until you opt in.
+> - **🎯 Hosting that can't run away** — TSS asks for your teleprompter app up front and sends input **only** there, so a host can never feed keystrokes back into its own console.
 
 ## What you get
 
@@ -46,6 +53,8 @@ Every serious live broadcast runs a **backup teleprompter** in case the primary 
 | 🎹 **MIDI control** | Map a MIDI controller's keys, pads, and knobs to any TSS action. |
 | ✅ **Pre-show readiness** | One click confirms rigs, sync, arm, permission, and helpers before you go live. |
 | 🔎 **Zero-config join** | Backup rigs discover the host over the network — no IP to type. |
+| 🪟 **One-window console** | Every control is visible at once — no scrolling to reach a button under pressure. |
+| 🎯 **Targeted, safe input** | Name the teleprompter app up front; keystrokes only ever reach that app, never the console. |
 
 ## A closer look
 
@@ -99,6 +108,10 @@ The native app bundles the hub, agent, and injector. Pick a role and go — no T
 ## Production-grade control
 
 Everything a live show needs to trust the backup and run it from anywhere.
+
+### Built to not surprise you
+
+The console is laid out to fit **one window** — transport, roll/all-stop, speed, your rigs and sync state are all visible at once, so there's no scrolling to hunt for a control the moment it matters. Mouse-wheel control is **opt-in** (a *Wheel drives rigs* toggle, off by default), so scrolling the window never moves the prompters by accident. And when you host, TSS drives **only** the teleprompter app you name — keystrokes can never loop back into the console. Quiet, predictable, show-safe.
 
 ### Know you're in sync
 <img src="assets/features/sync.png" alt="Live in-sync status, latency, armed state" width="620" />
@@ -158,7 +171,7 @@ Hosts announce themselves on the network, so backup rigs just tap a **Nearby ses
 ## Quick start
 
 1. **Download & install** — grab the [latest DMG](https://github.com/MaxFishman/teleprompter-sync-system/releases/latest), drag **Teleprompter Sync System** to Applications, and open it. (First launch of an unsigned app: right-click → **Open**.)
-2. **Host** — on the laptop with the keyboard, choose **Host a session**, type your teleprompter app's name, and hit **Start hosting**. The console opens with a join QR.
+2. **Host** — on the laptop with the keyboard, choose **Host a session**, **pick your teleprompter app** (required — it's the only app TSS will drive), and hit **Start hosting**. The console opens with a join QR.
 3. **Join** — on each backup laptop, open TSS → **Join a session** → enter the host address shown on the host. On a phone or tablet, just **scan the QR**.
 
 Drive from the console (or press keys / move the mouse) — every rig follows. That's it.
@@ -175,7 +188,7 @@ Drive from the console (or press keys / move the mouse) — every rig follows. T
 
 ## How it works
 
-TSS runs a tiny hub on the host over your local network. Commands fan out to each rig, where a focus-safe helper injects **real** macOS key and mouse events into your teleprompter app — so the app you already use just works, on every machine at once. Nothing is recorded; nothing leaves your network.
+TSS runs a tiny hub on the host over your local network. Commands fan out to each rig, where a focus-safe helper injects **real** macOS key and mouse events into the teleprompter app you named — and only that app, so input never leaks into the console or anything else on screen. The app you already use just works, on every machine at once. Nothing is recorded; nothing leaves your network.
 
 <details>
 <summary><b>Run from source / build the DMG yourself</b></summary>
@@ -190,7 +203,7 @@ npm start          # run the app unpackaged
 npm run dist       # build dist/Teleprompter-Sync-System-<version>.dmg
 ```
 
-**Without the app** (scripts only): on the host run `node server.js` + `node agent.js --host http://localhost:3000 --target "Your App" --name host --no-mouse`, open `http://localhost:3000`, and on each backup run `node agent.js --host http://<host-ip>:3000 --target "Your App"`. Full agent flags and the architecture notes live in [`CHANGELOG.md`](CHANGELOG.md) and inline in `server.js` / `agent.js`.
+**Without the app** (scripts only): on the host run `node server.js` + `node agent.js --host http://localhost:3000 --target "Your App" --name host --no-mouse --guard-frontmost` (the `--guard-frontmost` flag keeps the host from ever typing into its own console), open `http://localhost:3000`, and on each backup run `node agent.js --host http://<host-ip>:3000 --target "Your App"`. Full agent flags and the architecture notes live in [`CHANGELOG.md`](CHANGELOG.md) and inline in `server.js` / `agent.js`.
 
 Key pieces: `server.js` (hub), `agent.js` (per-rig injector), `keypost.swift` (focus-safe key + mouse injection), `public/` (the console), `electron/` (the macOS app), `docs/` (this site).
 
