@@ -3,6 +3,18 @@
 All notable changes to **Teleprompter Sync System (TSS)** are recorded here.
 Format based on [Keep a Changelog](https://keepachangelog.com/). Dates are ISO (YYYY-MM-DD).
 
+## [1.11.5] - 2026-11-16
+
+### Added
+- **Setup & permissions guide** — the launch screen now has a full guide that explains *why* TSS needs
+  macOS access and *how* to grant it, since the app is unsigned and these first-run gates are the main
+  friction. It walks through opening an unsigned app the first time (right-click → Open, or **Open
+  Anyway** on newer macOS), granting **Accessibility** (the exact System Settings path, a live
+  granted/needed status pill, and open-settings / re-check buttons), and approving the **Automation**
+  prompt — plus a plain-language note that the access only drives the apps you choose, on your local
+  network. Reachable from the permission banner and a persistent **Setup & permissions** footer link.
+  (`electron/launch.html`)
+
 ## [1.11.4] - 2026-11-16
 
 ### Added

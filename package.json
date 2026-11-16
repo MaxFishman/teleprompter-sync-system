@@ -1,7 +1,7 @@
 {
   "name": "teleprompter-sync-system",
   "productName": "Teleprompter Sync System",
-  "version": "1.11.4",
+  "version": "1.11.5",
   "description": "TSS — sync two redundant teleprompter rigs: one keyboard & mouse drives both, over the local network.",
   "author": "Max Fishman <daniel@fishman.org>",
   "license": "MIT",
