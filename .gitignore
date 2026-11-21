@@ -4,8 +4,9 @@ node_modules/
 # build output
 dist/
 
-# compiled native helper (built per-machine / at runtime)
+# compiled native helpers (built per-machine / at runtime)
 keypost
+scrollwatch
 
 # scratch + os cruft
 scratchpad/

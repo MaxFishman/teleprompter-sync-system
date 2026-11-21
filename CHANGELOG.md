@@ -3,6 +3,21 @@
 All notable changes to **Teleprompter Sync System (TSS)** are recorded here.
 Format based on [Keep a Changelog](https://keepachangelog.com/). Dates are ISO (YYYY-MM-DD).
 
+## [1.13.0] - 2026-11-21
+
+### Added
+- **Host scroll tracking (drive by scrolling your own app)** — the host can now cue every rig just by
+  scrolling their own teleprompter/app with the trackpad or wheel, **with the TSS console in the
+  background**. A listen-only system-wide scroll tap (`scrollwatch`, a tiny Swift helper built like
+  `keypost`) watches the host's scrolling and fans quantized ArrowDown/ArrowUp ticks to all rigs through
+  the same armed, per-rig-speed path as the console — so it works whether a rig drives a named app or
+  the new global-scroll mode. Opt-in per session from the host setup, and **toggled live from the
+  menu-bar icon** ("Track my scrolling → rigs") for hands-off background operation. Respects the arm
+  state, ignores scrolling of the TSS window itself, and the host's own rig skips these commands (it has
+  already moved for real — no double-drive, no feedback loop). An **Invert / Reverse** option handles
+  Macs with "natural" scrolling. Needs Accessibility permission (same as keystroke injection) and the
+  helper (built automatically). (`scrollwatch.swift`, `electron/main.js`, `agent.js`, `electron/launch.html`)
+
 ## [1.12.0] - 2026-11-21
 
 ### Added
