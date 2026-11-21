@@ -3,6 +3,18 @@
 All notable changes to **Teleprompter Sync System (TSS)** are recorded here.
 Format based on [Keep a Changelog](https://keepachangelog.com/). Dates are ISO (YYYY-MM-DD).
 
+## [1.12.0] - 2026-11-21
+
+### Added
+- **Global scroll mode (app-agnostic)** — each rig can now drive *any* app instead of a named
+  teleprompter. Pick **Global scroll · any app** in the setup screen and the rig sends real
+  scroll-wheel movement to whatever app is frontmost — a browser, a PDF, Word, Notes, any teleprompter —
+  with no target app and no per-app key mapping. The scroll keys map to wheel movement: ↑/↓ step
+  (scaled by the Scroll speed), PageUp/PageDown/Space page, and Home/End (and **Re-home**) jump to the
+  top/bottom of any view. An **Invert scroll direction** toggle handles Macs where "natural" scrolling
+  runs the wrong way. The classic per-app key-injection mode is unchanged and still the default.
+  Requires the `keypost` helper (built automatically). (`agent.js`, `electron/main.js`, `electron/launch.html`)
+
 ## [1.11.5] - 2026-11-16
 
 ### Added
