@@ -73,6 +73,17 @@
   input::placeholder{ color:var(--ink-faint) }
   .two{ display:flex; gap:12px } .two .field{ flex:1 }
 
+  /* drive-mode selector: a specific app vs. app-agnostic global scroll */
+  .modeseg{ display:flex; gap:6px; padding:4px; background:var(--well); border:1px solid #000; border-radius:11px; }
+  .modeseg button{ flex:1; cursor:pointer; background:transparent; color:var(--ink-dim); border:0;
+    border-radius:8px; padding:9px 0; font-family:var(--sans); font-size:12.5px; transition:.15s }
+  .modeseg button.on{ background:linear-gradient(180deg,#2c333c,#20262e); color:var(--ink);
+    box-shadow:0 1px 0 rgba(255,255,255,.06) inset }
+  .invertrow{ display:flex; align-items:center; gap:9px; margin:-4px 2px 16px; font-size:12.5px;
+    color:var(--ink-dim); cursor:pointer; }
+  .invertrow input{ width:auto; margin:0 }
+  .scrollhint{ font-size:12px; color:var(--ink-faint); line-height:1.5; margin:-6px 2px 14px; }
+
   .go{ width:100%; cursor:pointer; margin-top:4px; min-height:54px;
     font-family:var(--sans); font-size:16px; font-weight:600; letter-spacing:.02em; color:#1a1205;
     background:linear-gradient(180deg,var(--amber-soft),var(--amber)); border:0; border-radius:13px;
@@ -219,9 +230,18 @@
     <!-- HOST -->
     <form id="hostForm">
       <div class="field">
-        <label>Teleprompter app on this Mac <span style="opacity:.6">— required</span></label>
-        <input id="hTarget" list="appList" placeholder="pick or type an app…" autocomplete="off" required />
+        <label>What this Mac drives</label>
+        <div class="modeseg" id="hMode">
+          <button type="button" class="on" data-mode="app">A specific app</button>
+          <button type="button" data-mode="scroll">Global scroll · any app</button>
+        </div>
       </div>
+      <div class="field" id="hTargetField">
+        <label>Teleprompter app on this Mac <span style="opacity:.6">— required</span></label>
+        <input id="hTarget" list="appList" placeholder="pick or type an app…" autocomplete="off" />
+      </div>
+      <label class="invertrow" id="hInvertRow" hidden><input type="checkbox" id="hInvert" /> Invert scroll direction (if it scrolls the wrong way)</label>
+      <div class="scrollhint" id="hScrollHint" hidden>Sends real scroll-wheel movement to whatever app is frontmost — any teleprompter, browser, PDF or doc. No app name needed; just leave your script frontmost.</div>
       <div class="two">
         <div class="field">
           <label>Scroll speed (1–10)</label>
@@ -247,9 +267,18 @@
         <input id="jHost" placeholder="192.168.1.42  or  http://192.168.1.42:3000" autocomplete="off" />
       </div>
       <div class="field">
+        <label>What this Mac drives</label>
+        <div class="modeseg" id="jMode">
+          <button type="button" class="on" data-mode="app">A specific app</button>
+          <button type="button" data-mode="scroll">Global scroll · any app</button>
+        </div>
+      </div>
+      <div class="field" id="jTargetField">
         <label>Teleprompter app on this Mac</label>
         <input id="jTarget" list="appList" placeholder="pick or type an app…" autocomplete="off" />
       </div>
+      <label class="invertrow" id="jInvertRow" hidden><input type="checkbox" id="jInvert" /> Invert scroll direction (if it scrolls the wrong way)</label>
+      <div class="scrollhint" id="jScrollHint" hidden>This rig will scroll whatever app is frontmost on this Mac — works with any app. Leave your script app frontmost.</div>
       <div class="two">
         <div class="field">
           <label>Scroll speed (1–10)</label>
@@ -336,6 +365,20 @@
   segHost.onclick = () => show(true);
   segJoin.onclick = () => show(false);
 
+  // --- drive mode: 'app' (send keys to a named app) vs 'scroll' (global, any app) ---
+  let hModeVal = 'app', jModeVal = 'app';
+  function applyMode(p, mode){
+    mode = mode === 'scroll' ? 'scroll' : 'app';
+    if (p === 'h') hModeVal = mode; else jModeVal = mode;
+    const seg = $(p + 'Mode'), scroll = mode === 'scroll';
+    seg.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x.dataset.mode === mode));
+    $(p + 'TargetField').hidden = scroll;
+    $(p + 'InvertRow').hidden = !scroll;
+    $(p + 'ScrollHint').hidden = !scroll;
+  }
+  ['h', 'j'].forEach((p) => $(p + 'Mode').querySelectorAll('button').forEach((b) =>
+    b.addEventListener('click', () => applyMode(p, b.dataset.mode))));
+
   function normHost(v){
     v = (v || '').trim();
     if (!v) return '';
@@ -390,6 +433,7 @@
       speed: Number($(h ? 'hSpeed' : 'jSpeed').value) || 1,
       pin: $(h ? 'hPin' : 'jPin').value.trim(),
       host: $('jHost').value.trim(), name: $('jName').value.trim(),
+      mode: h ? hModeVal : jModeVal, invertScroll: $(h ? 'hInvert' : 'jInvert').checked,
       keymap: { ...keymap },
     };
   }
@@ -400,6 +444,8 @@
     if (p.pin != null){ $('hPin').value = p.pin; $('jPin').value = p.pin; }
     if (p.host) $('jHost').value = p.host;
     if (p.name) $('jName').value = p.name;
+    if (p.invertScroll != null){ $('hInvert').checked = !!p.invertScroll; $('jInvert').checked = !!p.invertScroll; }
+    applyMode('h', p.mode); applyMode('j', p.mode);
     keymap = p.keymap ? { ...p.keymap } : {}; renderKeymap();
   }
   $('presetSel').addEventListener('change', (e) => { if (presets[e.target.value]) applyPreset(presets[e.target.value]); });
@@ -420,17 +466,18 @@
   hostForm.addEventListener('submit', async (e) => {
     e.preventDefault(); err.textContent = '';
     const target = $('hTarget').value.trim();
-    // Require an explicit teleprompter app. Without one the host agent would type
-    // into the frontmost app — the controller console itself — creating a key
-    // feedback loop that can flood macOS and hang the machine.
-    if (!target) {
+    // In app mode, require an explicit teleprompter app. Without one the host agent
+    // would type into the frontmost app — the controller console itself — creating a
+    // key feedback loop that can flood macOS and hang the machine. Global-scroll mode
+    // sends wheel movement (not keystrokes) to the frontmost app, so no target needed.
+    if (hModeVal === 'app' && !target) {
       err.textContent = 'Pick the teleprompter app this Mac should drive before hosting.';
       $('hTarget').focus();
       return;
     }
     const btn = $('hostGo'); btn.disabled = true; btn.textContent = 'Starting…';
     try {
-      await window.tss.host({ target, speed: Number($('hSpeed').value) || 1, pin: $('hPin').value.trim(), keymap });
+      await window.tss.host({ target, speed: Number($('hSpeed').value) || 1, pin: $('hPin').value.trim(), keymap, mode: hModeVal, invertScroll: $('hInvert').checked });
     } catch (ex) {
       err.textContent = 'Could not start hosting: ' + (ex && ex.message ? ex.message : ex);
       btn.disabled = false; btn.textContent = 'Start hosting';
@@ -446,7 +493,7 @@
       await window.tss.join({
         host, target: $('jTarget').value.trim(),
         speed: Number($('jSpeed').value) || 1, name: $('jName').value.trim() || 'backup',
-        pin: $('jPin').value.trim(), keymap,
+        pin: $('jPin').value.trim(), keymap, mode: jModeVal, invertScroll: $('jInvert').checked,
       });
     } catch (ex) {
       err.textContent = 'Could not join: ' + (ex && ex.message ? ex.message : ex);
@@ -545,6 +592,8 @@
       if (cfg.name) $('jName').value = cfg.name;
       if (cfg.host) $('jHost').value = cfg.host;
       if (cfg.pin){ $('hPin').value = cfg.pin; $('jPin').value = cfg.pin; }
+      if (cfg.invertScroll){ $('hInvert').checked = true; $('jInvert').checked = true; }
+      applyMode('h', cfg.mode); applyMode('j', cfg.mode);
       keymap = cfg.keymap || {}; renderKeymap();
       presets = cfg.presets || {}; renderPresets();
     } catch (_) {}

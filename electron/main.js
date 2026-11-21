@@ -497,12 +497,21 @@ ipcMain.handle('host-session', async (_e, opts = {}) => {
   sessionPinValue = pin;
   const res = await startHub(Number(opts.port) || 3000, pin);
   hubServer = res.server; hubRef = res.hub;
+  const mode = opts.mode === 'scroll' ? 'scroll' : 'app';
   const args = ['--host', `http://localhost:${res.port}`, '--name', 'host', '--no-mouse', '--speed', String(opts.speed || 1)];
-  // Host runs on the same machine as the controller console, so guard against the
-  // agent ever typing into it (which would feedback-loop and could hang the Mac):
-  // no frontmost injection, and never target the controller app itself.
-  args.push('--guard-frontmost', '--self-name', app.getName());
-  if (opts.target) args.push('--target', opts.target);
+  if (mode === 'scroll') {
+    // App-agnostic: drive real scroll-wheel movement on whatever's frontmost. No
+    // target app, and no guard-frontmost — a scroll event isn't a keystroke the
+    // console re-transmits, and the agent's inject rate cap backstops any loop.
+    args.push('--mode', 'scroll');
+    if (opts.invertScroll) args.push('--invert-scroll');
+  } else {
+    // Host runs on the same machine as the controller console, so guard against the
+    // agent ever typing into it (which would feedback-loop and could hang the Mac):
+    // no frontmost injection, and never target the controller app itself.
+    args.push('--guard-frontmost', '--self-name', app.getName());
+    if (opts.target) args.push('--target', opts.target);
+  }
   if (pin) args.push('--pin', pin);
   if (opts.keymap && Object.keys(opts.keymap).length) args.push('--keymap', JSON.stringify(opts.keymap));
   spawnAgent(args);
@@ -514,7 +523,7 @@ ipcMain.handle('host-session', async (_e, opts = {}) => {
   updateTray();
   const cfg = loadConfig();
   const firstRun = !cfg.tourSeen;   // show the guided tour the first time the console ever opens
-  saveConfig({ ...cfg, target: opts.target || '', speed: opts.speed || 1, pin, keymap: opts.keymap || {}, tourSeen: true });
+  saveConfig({ ...cfg, target: opts.target || '', speed: opts.speed || 1, pin, keymap: opts.keymap || {}, mode, invertScroll: !!opts.invertScroll, tourSeen: true });
   const q = new URLSearchParams();
   if (pin) q.set('pin', pin);
   if (firstRun) q.set('tour', '1');
@@ -527,17 +536,24 @@ ipcMain.handle('join-session', async (_e, opts = {}) => {
   const host = opts.host;
   const pin = String(opts.pin || '').trim();
   sessionPinValue = pin;
+  const mode = opts.mode === 'scroll' ? 'scroll' : 'app';
   const args = ['--host', host, '--name', opts.name || 'backup', '--speed', String(opts.speed || 1)];
-  if (opts.target) args.push('--target', opts.target);
+  if (mode === 'scroll') {
+    // App-agnostic: this rig scrolls whatever app is frontmost — no target needed.
+    args.push('--mode', 'scroll');
+    if (opts.invertScroll) args.push('--invert-scroll');
+  } else if (opts.target) {
+    args.push('--target', opts.target);
+  }
   if (pin) args.push('--pin', pin);
   if (opts.keymap && Object.keys(opts.keymap).length) args.push('--keymap', JSON.stringify(opts.keymap));
   spawnAgent(args);
   sessionActive = true; sessionMode = 'join';
   sessionHost = host;
-  joinedQuery = { host, target: opts.target || '', keypost: keypostPath ? '1' : '0' };
+  joinedQuery = { host, target: opts.target || '', mode, keypost: keypostPath ? '1' : '0' };
   createHud();
   updateTray();
-  saveConfig({ ...loadConfig(), host, target: opts.target || '', speed: opts.speed || 1, name: opts.name || 'backup', pin, keymap: opts.keymap || {} });
+  saveConfig({ ...loadConfig(), host, target: opts.target || '', speed: opts.speed || 1, name: opts.name || 'backup', pin, keymap: opts.keymap || {}, mode, invertScroll: !!opts.invertScroll });
   await win.loadFile(path.join(__dirname, 'joined.html'), { query: joinedQuery });
   return { ok: true, keypost: !!keypostPath };
 });

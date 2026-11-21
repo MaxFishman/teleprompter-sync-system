@@ -77,6 +77,36 @@ const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'])
 // backup laptops accept mouse commands. Requires the keypost helper (no osascript path).
 const MOUSE = !process.argv.includes('--no-mouse');
 
+// Drive mode:
+//   'app'    (default) — inject the scroll KEYS into a named teleprompter app.
+//   'scroll'           — app-agnostic: translate the scroll keys into real
+//                        scroll-wheel movement aimed at whatever app is frontmost,
+//                        so this rig drives ANY app (browser, PDF, Notes, Word…)
+//                        with no --target and no per-app key mapping. Needs keypost.
+const MODE = String(arg('--mode', 'app')).toLowerCase() === 'scroll' ? 'scroll' : 'app';
+// Some Macs have "natural" scrolling that flips wheel direction; this re-inverts it
+// so Down still advances the script. Only relevant in scroll mode.
+const INVERT_SCROLL = process.argv.includes('--invert-scroll');
+// Pixels moved per scroll command in scroll mode. The line step scales with SPEED
+// (1 = gentle nudge, 10 = a chunk per tap); page/ends are fixed larger jumps. The
+// ends are deliberately huge so Home/End (and Re-home) reach the top/bottom of any
+// view — apps clamp the overshoot.
+const SCROLL_STEP = 40;
+const SCROLL_PAGE = 420;
+const SCROLL_END = 100000;
+function scrollDeltaFor(code) {
+  switch (code) {
+    case 'ArrowDown': return SCROLL_STEP * SPEED;
+    case 'ArrowUp':   return -SCROLL_STEP * SPEED;
+    case 'PageDown':
+    case 'Space':     return SCROLL_PAGE;
+    case 'PageUp':    return -SCROLL_PAGE;
+    case 'End':       return SCROLL_END;
+    case 'Home':      return -SCROLL_END;   // also how Re-home jumps every rig to the top
+    default:          return null;           // non-scroll keys are ignored in scroll mode
+  }
+}
+
 // --- key name -> macOS virtual key code --------------------------------------
 const KEYCODES = {
   ArrowUp: 126, ArrowDown: 125, ArrowLeft: 123, ArrowRight: 124,
@@ -169,8 +199,26 @@ function guardSkip() {
   }
 }
 
+// --- global scroll (app-agnostic) --------------------------------------------
+// Translate a scroll key into real wheel movement on whatever app is frontmost.
+// No target app, no keystroke feedback path (the console only re-transmits keys,
+// and only when wheel-tracking is on — the inject rate cap backstops that anyway).
+let scrollWarned = false;
+function injectScroll(code) {
+  if (!HAVE_KEYPOST) {
+    if (!scrollWarned) { scrollWarned = true; process.stderr.write('global scroll needs the keypost helper — run: swiftc keypost.swift -o keypost\n'); }
+    return;
+  }
+  const delta = scrollDeltaFor(code);
+  if (delta == null) return;         // not a scroll key — nothing to do in scroll mode
+  if (!injectAllowed()) return;      // safety: never let a feedback loop flood the OS
+  const dy = Math.round(INVERT_SCROLL ? -delta : delta);
+  execFile(KEYPOST, ['scroll', String(dy)], () => {});
+}
+
 // --- injection ---------------------------------------------------------------
 function inject(code) {
+  if (MODE === 'scroll') return injectScroll(code); // app-agnostic wheel, any frontmost app
   if (wouldHitController()) return guardSkip(); // never feed keys back into the console
   if (!injectAllowed()) return;  // safety: never let a feedback loop flood the OS
   // Line-scroll keys repeat SPEED times; jumps/toggles always fire once.
@@ -280,8 +328,10 @@ function connect() {
       return retry();
     }
     console.log(`connected to ${HOST} as "${NAME}"` +
-      (TARGET ? `  → target "${TARGET}"`
-              : (GUARD_FRONTMOST ? '  → no target (injection disabled — pick a target app)' : '  → frontmost app')) +
+      (MODE === 'scroll'
+        ? `  → global scroll (any frontmost app)${INVERT_SCROLL ? ' [inverted]' : ''}`
+        : (TARGET ? `  → target "${TARGET}"`
+                  : (GUARD_FRONTMOST ? '  → no target (injection disabled — pick a target app)' : '  → frontmost app'))) +
       `  [speed ${SPEED}]` +
       `  [mouse ${MOUSE ? (HAVE_KEYPOST ? 'on' : 'needs keypost') : 'off'}]` +
       (HAVE_KEYPOST ? '  [keypost: on]' : '  [keypost: off, using osascript]'));
