@@ -65,6 +65,11 @@ const RESTORE = process.argv.includes('--restore-focus'); // for osascript fallb
 // documented "frontmost app" convenience.
 const GUARD_FRONTMOST = process.argv.includes('--guard-frontmost');
 const SELF_NAME = arg('--self-name', ''); // controller app name to never inject into
+// This is the host's own rig. When the host drives by scrolling their own app
+// (the global scroll tap, broadcast with hostTap:true), the host machine has
+// ALREADY moved for real — so this rig must ignore those commands or it would
+// double-drive the host app and feed its own injected scroll back into the tap.
+const HOST_RIG = process.argv.includes('--host-rig');
 
 // Scroll speed = how many line-scroll key presses this laptop makes per command.
 // Tune per laptop so two different teleprompter apps advance at the same rate.
@@ -374,6 +379,7 @@ function connect() {
             const dup = (msg.type === 'key' || msg.type === 'mouse') && msg.seq != null && msg.seq <= lastExecSeq;
             if (msg.type === 'hello') { myId = msg.id; }
             else if (dup) { /* already executed this command — ack only */ }
+            else if (msg.hostTap && HOST_RIG) { if (msg.seq != null) lastExecSeq = msg.seq; /* host already moved by the real trackpad — don't double-drive */ }
             else if (msg.type === 'key' && msg.code) { if (msg.seq != null) lastExecSeq = msg.seq; inject(msg.code); }
             else if (msg.type === 'mouse') { if (msg.seq != null) lastExecSeq = msg.seq; mouse(msg); }
             else if (msg.type === 'speed' && (msg.id === 'all' || Number(msg.id) === myId)) {

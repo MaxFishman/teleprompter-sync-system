@@ -20,6 +20,10 @@ let agentRespawns = 0;       // consecutive quick crashes → backoff
 let agentRespawnTimer = null;
 let hubServer = null;
 let keypostPath = null;
+let scrollwatchPath = null;   // listen-only global scroll tap (host trackpad tracking)
+let scrollwatchProc = null;
+let hostTrack = false;         // mirror the host's own scrolling to every rig
+let hostTrackInvert = false;   // flip direction on Macs that scroll the wrong way
 let sessionActive = false;
 let sessionHost = '';   // URL the HUD watches for live status
 let hubRef = null;      // the running hub (host sessions only) for hotkeys + arm
@@ -84,6 +88,10 @@ function updateTray() {
     ...(hosting ? [{ label: armedNow ? 'Disarm (block input)' : 'Arm (go live)', click: () => {
       hubRef.setArmed(!hubRef.armed); hubRef.broadcast({ type: 'armed', value: hubRef.armed }); updateTray();
     } }] : []),
+    ...(hosting ? [{ label: 'Track my scrolling → rigs', type: 'checkbox', checked: hostTrack,
+      enabled: !!scrollwatchPath, click: (item) => applyHostTrack(item.checked) }] : []),
+    ...(hosting && hostTrack ? [{ label: 'Reverse tracked scroll', type: 'checkbox', checked: hostTrackInvert,
+      click: (item) => { hostTrackInvert = item.checked; scrollAccum = 0; saveConfig({ ...loadConfig(), hostTrackInvert }); updateTray(); } }] : []),
     { label: 'Leave session', enabled: sessionActive, click: () => leaveSession() },
     { type: 'separator' },
     { label: 'Open at Login', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin,
@@ -97,7 +105,7 @@ function updateTray() {
 
 async function leaveSession() {
   sessionActive = false; sessionHost = ''; hubRef = null; sessionMode = null; sessionPinValue = '';
-  unregisterHotkeys(); stopAdvertise();
+  unregisterHotkeys(); stopAdvertise(); stopScrollwatch();
   stopAgent(); stopHub(); destroyHud(); destroyMini();
   updateTray();
   if (!win || win.isDestroyed()) createWindow();
@@ -338,6 +346,84 @@ function resolveKeypost() {
   } catch (_) { return null; } // no swiftc → agent falls back to osascript (keys only)
 }
 
+// Build (or locate) the scrollwatch helper — a listen-only global scroll tap that
+// lets the host drive the rigs by scrolling their own app, console in the background.
+function resolveScrollwatch() {
+  const bundled = path.join(__dirname, '..', 'scrollwatch');
+  try { fs.accessSync(bundled, fs.constants.X_OK); return bundled; } catch (_) {}
+  const out = path.join(app.getPath('userData'), 'scrollwatch');
+  try { fs.accessSync(out, fs.constants.X_OK); return out; } catch (_) {}
+  const candidates = [
+    path.join(process.resourcesPath || '', 'scrollwatch.swift'),
+    path.join(__dirname, '..', 'scrollwatch.swift'),
+  ];
+  const src = candidates.find((p) => { try { fs.accessSync(p); return true; } catch (_) { return false; } });
+  if (!src) return null;
+  try {
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    execFileSync('swiftc', [src, '-o', out], { stdio: 'ignore' });
+    return out;
+  } catch (_) { return null; } // no swiftc → host scroll tracking just won't be available
+}
+
+// --- host scroll tracking: mirror the host's trackpad/wheel to every rig --------
+// scrollwatch streams raw scroll deltas on stdout ("s <dy>"); we accumulate them
+// and emit ArrowDown/ArrowUp ticks tagged hostTap, so every rig follows the host's
+// real scrolling through the same path as the console — even with TSS in the back-
+// ground. The host's own rig ignores hostTap (it already moved for real).
+const SCROLL_TICK_POINTS = 28;   // accumulated scroll points per emitted arrow tick
+const SCROLL_MAX_TICKS = 6;      // cap ticks per burst so a hard flick can't flood
+let scrollAccum = 0;
+function startScrollwatch() {
+  if (scrollwatchProc || !scrollwatchPath) return;
+  scrollAccum = 0;
+  let proc;
+  try { proc = spawn(scrollwatchPath, [], { stdio: ['ignore', 'pipe', 'ignore'] }); }
+  catch (_) { return; }
+  scrollwatchProc = proc;
+  let buf = '';
+  proc.stdout.setEncoding('utf8');
+  proc.stdout.on('data', (chunk) => {
+    buf += chunk;
+    let i;
+    while ((i = buf.indexOf('\n')) !== -1) {
+      const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+      const m = /^s (-?\d+(?:\.\d+)?)$/.exec(line);
+      if (m) onHostScroll(Number(m[1]));
+    }
+  });
+  proc.on('exit', () => { if (scrollwatchProc === proc) scrollwatchProc = null; });
+  proc.on('error', () => { if (scrollwatchProc === proc) scrollwatchProc = null; });
+}
+function stopScrollwatch() {
+  if (scrollwatchProc) { try { scrollwatchProc.kill(); } catch (_) {} scrollwatchProc = null; }
+  scrollAccum = 0;
+}
+function onHostScroll(dy) {
+  // Only drive while hosting and armed, and never when the console itself is focused
+  // (scrolling the TSS window is navigation, not a cue). When the host is working in
+  // their own app — the whole point — TSS isn't focused, so the scroll drives the rigs.
+  if (!sessionActive || sessionMode !== 'host' || !hubRef || !hubRef.armed) { scrollAccum = 0; return; }
+  if (win && !win.isDestroyed() && win.isFocused()) { scrollAccum = 0; return; }
+  const signed = hostTrackInvert ? -dy : dy;   // CGEvent axis-1: + = up, − = down
+  scrollAccum += signed;
+  let ticks = 0;
+  while (Math.abs(scrollAccum) >= SCROLL_TICK_POINTS && ticks < SCROLL_MAX_TICKS) {
+    const down = scrollAccum < 0;   // negative delta = scrolling down = advance the script
+    scrollAccum += down ? SCROLL_TICK_POINTS : -SCROLL_TICK_POINTS;
+    hubRef.broadcast({ type: 'key', code: down ? 'ArrowDown' : 'ArrowUp', hostTap: true, ts: Date.now() });
+    ticks++;
+  }
+  if (ticks >= SCROLL_MAX_TICKS) scrollAccum = 0;   // drop the tail of a hard flick
+}
+function applyHostTrack(on) {
+  hostTrack = !!on;
+  if (hostTrack && sessionActive && sessionMode === 'host') startScrollwatch();
+  else stopScrollwatch();
+  const cfg = loadConfig(); if (cfg.hostTrack !== hostTrack) saveConfig({ ...cfg, hostTrack });
+  updateTray();
+}
+
 function createWindow() {
   const b = loadConfig().winBounds || {};
   win = new BrowserWindow({
@@ -459,6 +545,7 @@ async function startHub(preferred, pin) {
 
 app.whenReady().then(() => {
   keypostPath = resolveKeypost();
+  scrollwatchPath = resolveScrollwatch();
   buildMenu();
   createTray();          // tray is always present; menu reflects session state
   createWindow();
@@ -486,7 +573,7 @@ app.on('before-quit', (e) => {
     if (choice === 0) { quitConfirmed = true; app.quit(); }
     return;
   }
-  unregisterHotkeys(); stopAgent(); stopHub(); destroyHud(); destroyMini();
+  unregisterHotkeys(); stopAgent(); stopHub(); destroyHud(); destroyMini(); stopScrollwatch();
   stopAdvertise(); try { if (bonjour) bonjour.destroy(); } catch (_) {}
   if (trayTimer) clearInterval(trayTimer);
   if (tray) { try { tray.destroy(); } catch (_) {} tray = null; }
@@ -499,6 +586,9 @@ ipcMain.handle('host-session', async (_e, opts = {}) => {
   hubServer = res.server; hubRef = res.hub;
   const mode = opts.mode === 'scroll' ? 'scroll' : 'app';
   const args = ['--host', `http://localhost:${res.port}`, '--name', 'host', '--no-mouse', '--speed', String(opts.speed || 1)];
+  // This rig is the host itself: it must ignore host-scroll-tap commands (the host
+  // already moved for real) so tracking never double-drives it or feeds back.
+  args.push('--host-rig');
   if (mode === 'scroll') {
     // App-agnostic: drive real scroll-wheel movement on whatever's frontmost. No
     // target app, and no guard-frontmost — a scroll event isn't a keystroke the
@@ -517,19 +607,22 @@ ipcMain.handle('host-session', async (_e, opts = {}) => {
   spawnAgent(args);
   sessionActive = true; sessionMode = 'host';
   sessionHost = `http://localhost:${res.port}`;
+  // Host scroll tracking: mirror the operator's own trackpad/wheel to every rig.
+  hostTrack = !!opts.hostTrack; hostTrackInvert = !!opts.hostTrackInvert;
+  if (hostTrack) startScrollwatch();
   advertiseSession(res.port);   // let backup rigs discover this host over mDNS
   registerHotkeys();
   createHud();
   updateTray();
   const cfg = loadConfig();
   const firstRun = !cfg.tourSeen;   // show the guided tour the first time the console ever opens
-  saveConfig({ ...cfg, target: opts.target || '', speed: opts.speed || 1, pin, keymap: opts.keymap || {}, mode, invertScroll: !!opts.invertScroll, tourSeen: true });
+  saveConfig({ ...cfg, target: opts.target || '', speed: opts.speed || 1, pin, keymap: opts.keymap || {}, mode, invertScroll: !!opts.invertScroll, hostTrack, hostTrackInvert, tourSeen: true });
   const q = new URLSearchParams();
   if (pin) q.set('pin', pin);
   if (firstRun) q.set('tour', '1');
   const consoleUrl = sessionHost + (q.toString() ? `/?${q.toString()}` : '');
   await win.loadURL(consoleUrl);
-  return { port: res.port, primary: res.primary, urls: res.urls, keypost: !!keypostPath };
+  return { port: res.port, primary: res.primary, urls: res.urls, keypost: !!keypostPath, scrollwatch: !!scrollwatchPath };
 });
 
 ipcMain.handle('join-session', async (_e, opts = {}) => {

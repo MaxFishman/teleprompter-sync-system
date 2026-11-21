@@ -242,6 +242,9 @@
       </div>
       <label class="invertrow" id="hInvertRow" hidden><input type="checkbox" id="hInvert" /> Invert scroll direction (if it scrolls the wrong way)</label>
       <div class="scrollhint" id="hScrollHint" hidden>Sends real scroll-wheel movement to whatever app is frontmost — any teleprompter, browser, PDF or doc. No app name needed; just leave your script frontmost.</div>
+      <label class="invertrow" id="hTrackRow"><input type="checkbox" id="hTrack" /> Mirror <b style="color:var(--ink);font-weight:600">my</b> scrolling to the rigs</label>
+      <div class="scrollhint" id="hTrackHint">Drive every rig by scrolling your <b>own</b> app — trackpad or wheel — even with TSS in the background. Toggle it live from the menu-bar icon too.</div>
+      <label class="invertrow" id="hTrackInvRow" hidden style="margin-top:-8px"><input type="checkbox" id="hTrackInv" /> Reverse tracked scroll direction</label>
       <div class="two">
         <div class="field">
           <label>Scroll speed (1–10)</label>
@@ -379,6 +382,9 @@
   ['h', 'j'].forEach((p) => $(p + 'Mode').querySelectorAll('button').forEach((b) =>
     b.addEventListener('click', () => applyMode(p, b.dataset.mode))));
 
+  // Host scroll tracking: reveal the direction sub-toggle only when tracking is on.
+  $('hTrack').addEventListener('change', () => { $('hTrackInvRow').hidden = !$('hTrack').checked; });
+
   function normHost(v){
     v = (v || '').trim();
     if (!v) return '';
@@ -434,6 +440,7 @@
       pin: $(h ? 'hPin' : 'jPin').value.trim(),
       host: $('jHost').value.trim(), name: $('jName').value.trim(),
       mode: h ? hModeVal : jModeVal, invertScroll: $(h ? 'hInvert' : 'jInvert').checked,
+      hostTrack: $('hTrack').checked, hostTrackInvert: $('hTrackInv').checked,
       keymap: { ...keymap },
     };
   }
@@ -445,6 +452,8 @@
     if (p.host) $('jHost').value = p.host;
     if (p.name) $('jName').value = p.name;
     if (p.invertScroll != null){ $('hInvert').checked = !!p.invertScroll; $('jInvert').checked = !!p.invertScroll; }
+    if (p.hostTrack != null){ $('hTrack').checked = !!p.hostTrack; $('hTrackInvRow').hidden = !p.hostTrack; }
+    if (p.hostTrackInvert != null) $('hTrackInv').checked = !!p.hostTrackInvert;
     applyMode('h', p.mode); applyMode('j', p.mode);
     keymap = p.keymap ? { ...p.keymap } : {}; renderKeymap();
   }
@@ -477,7 +486,7 @@
     }
     const btn = $('hostGo'); btn.disabled = true; btn.textContent = 'Starting…';
     try {
-      await window.tss.host({ target, speed: Number($('hSpeed').value) || 1, pin: $('hPin').value.trim(), keymap, mode: hModeVal, invertScroll: $('hInvert').checked });
+      await window.tss.host({ target, speed: Number($('hSpeed').value) || 1, pin: $('hPin').value.trim(), keymap, mode: hModeVal, invertScroll: $('hInvert').checked, hostTrack: $('hTrack').checked, hostTrackInvert: $('hTrackInv').checked });
     } catch (ex) {
       err.textContent = 'Could not start hosting: ' + (ex && ex.message ? ex.message : ex);
       btn.disabled = false; btn.textContent = 'Start hosting';
@@ -593,6 +602,8 @@
       if (cfg.host) $('jHost').value = cfg.host;
       if (cfg.pin){ $('hPin').value = cfg.pin; $('jPin').value = cfg.pin; }
       if (cfg.invertScroll){ $('hInvert').checked = true; $('jInvert').checked = true; }
+      if (cfg.hostTrack){ $('hTrack').checked = true; $('hTrackInvRow').hidden = false; }
+      if (cfg.hostTrackInvert) $('hTrackInv').checked = true;
       applyMode('h', cfg.mode); applyMode('j', cfg.mode);
       keymap = cfg.keymap || {}; renderKeymap();
       presets = cfg.presets || {}; renderPresets();
