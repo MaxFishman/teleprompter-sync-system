@@ -16,6 +16,7 @@
 //   keypost click <nx> <ny> [left|right]  click (down+up) at a normalized point
 //   keypost clickcur [left|right]      click wherever the cursor currently is
 //   keypost scroll <dy>                scroll wheel by <dy> pixels (negative = up)
+//   keypost scrollsmooth <dy> [ms]     scroll <dy> pixels eased over [ms] (default 110) — smooth glide
 //
 // Normalized coords (nx, ny) are 0..1 across the main display, origin top-left —
 // so two laptops showing the same layout land on the same relative spot.
@@ -49,6 +50,34 @@ func button(_ s: String) -> (CGMouseButton, CGEventType, CGEventType, CGEventTyp
 func postMouse(_ type: CGEventType, _ p: CGPoint, _ btn: CGMouseButton) {
     CGEvent(mouseEventSource: src, mouseType: type, mouseCursorPosition: p, mouseButton: btn)?
         .post(tap: .cghidEventTap)
+}
+
+func postScroll(_ dy: Int32) {
+    CGEvent(scrollWheelEvent2Source: src, units: .pixel, wheelCount: 1, wheel1: dy, wheel2: 0, wheel3: 0)?
+        .post(tap: .cghidEventTap)
+}
+
+// Animate a scroll of `total` pixels over `ms` with an ease-out curve, posting a
+// stream of small pixel deltas. This turns a single discrete command into a smooth
+// glide — overlapping commands blend — so synced scrolling looks fluid, not steppy.
+// Sub-pixel remainders are carried between frames and flushed at the end, so the
+// total distance is exact (no rounding drift).
+func smoothScroll(_ total: Int, _ ms: Int) {
+    if total == 0 { return }
+    let dur = Double(max(1, ms)) / 1000.0
+    let steps = max(6, min(24, Int(dur / 0.008)))   // ~8 ms per frame, clamped 6…24
+    let frame = useconds_t((dur / Double(steps)) * 1_000_000)
+    let t = Double(total)
+    var sent = 0.0
+    for i in 1...steps {
+        let p = Double(i) / Double(steps)
+        let eased = 1 - pow(1 - p, 3)                // ease-out cubic
+        let delta = (t * eased - sent).rounded()
+        if delta != 0 { postScroll(Int32(delta)); sent += delta }
+        usleep(frame)
+    }
+    let rem = (t - sent).rounded()
+    if rem != 0 { postScroll(Int32(rem)) }
 }
 
 func dbl(_ i: Int) -> Double { Double(a[i]) ?? 0 }
@@ -91,8 +120,11 @@ case "clickcur":
 
 case "scroll":
     guard a.count >= 3, let dy = Int32(a[2]) else { fail("usage: keypost scroll <dy>") }
-    CGEvent(scrollWheelEvent2Source: src, units: .pixel, wheelCount: 1, wheel1: dy, wheel2: 0, wheel3: 0)?
-        .post(tap: .cghidEventTap)
+    postScroll(dy)
+
+case "scrollsmooth":
+    guard a.count >= 3, let total = Int(a[2]) else { fail("usage: keypost scrollsmooth <dy> [ms]") }
+    smoothScroll(total, a.count >= 4 ? (Int(a[3]) ?? 110) : 110)
 
 default:
     fail("unknown command \(a[1])")

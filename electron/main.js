@@ -91,7 +91,7 @@ function updateTray() {
     ...(hosting ? [{ label: 'Track my scrolling → rigs', type: 'checkbox', checked: hostTrack,
       enabled: !!scrollwatchPath, click: (item) => applyHostTrack(item.checked) }] : []),
     ...(hosting && hostTrack ? [{ label: 'Reverse tracked scroll', type: 'checkbox', checked: hostTrackInvert,
-      click: (item) => { hostTrackInvert = item.checked; scrollAccum = 0; saveConfig({ ...loadConfig(), hostTrackInvert }); updateTray(); } }] : []),
+      click: (item) => { hostTrackInvert = item.checked; hostScrollAccum = 0; saveConfig({ ...loadConfig(), hostTrackInvert }); updateTray(); } }] : []),
     { label: 'Leave session', enabled: sessionActive, click: () => leaveSession() },
     { type: 'separator' },
     { label: 'Open at Login', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin,
@@ -367,16 +367,16 @@ function resolveScrollwatch() {
 }
 
 // --- host scroll tracking: mirror the host's trackpad/wheel to every rig --------
-// scrollwatch streams raw scroll deltas on stdout ("s <dy>"); we accumulate them
-// and emit ArrowDown/ArrowUp ticks tagged hostTap, so every rig follows the host's
-// real scrolling through the same path as the console — even with TSS in the back-
-// ground. The host's own rig ignores hostTap (it already moved for real).
-const SCROLL_TICK_POINTS = 28;   // accumulated scroll points per emitted arrow tick
-const SCROLL_MAX_TICKS = 6;      // cap ticks per burst so a hard flick can't flood
-let scrollAccum = 0;
+// scrollwatch streams raw scroll deltas on stdout ("s <dy>"); we coalesce them and
+// flush a proportional delta at a steady cadence as a smooth 'scroll' command, so
+// every rig glides in realtime — even with TSS in the background — instead of hopping
+// in fixed steps. The host's own rig ignores hostTap (it already moved for real).
+const HOST_FLUSH_MS = 50;        // ~20 Hz proportional stream to the rigs
+let hostScrollAccum = 0;         // raw host pixels awaiting the next flush
+let hostScrollTimer = null;
 function startScrollwatch() {
   if (scrollwatchProc || !scrollwatchPath) return;
-  scrollAccum = 0;
+  hostScrollAccum = 0;
   let proc;
   try { proc = spawn(scrollwatchPath, [], { stdio: ['ignore', 'pipe', 'ignore'] }); }
   catch (_) { return; }
@@ -397,24 +397,29 @@ function startScrollwatch() {
 }
 function stopScrollwatch() {
   if (scrollwatchProc) { try { scrollwatchProc.kill(); } catch (_) {} scrollwatchProc = null; }
-  scrollAccum = 0;
+  if (hostScrollTimer) { clearInterval(hostScrollTimer); hostScrollTimer = null; }
+  hostScrollAccum = 0;
 }
 function onHostScroll(dy) {
-  // Only drive while hosting and armed, and never when the console itself is focused
-  // (scrolling the TSS window is navigation, not a cue). When the host is working in
-  // their own app — the whole point — TSS isn't focused, so the scroll drives the rigs.
-  if (!sessionActive || sessionMode !== 'host' || !hubRef || !hubRef.armed) { scrollAccum = 0; return; }
-  if (win && !win.isDestroyed() && win.isFocused()) { scrollAccum = 0; return; }
-  const signed = hostTrackInvert ? -dy : dy;   // CGEvent axis-1: + = up, − = down
-  scrollAccum += signed;
-  let ticks = 0;
-  while (Math.abs(scrollAccum) >= SCROLL_TICK_POINTS && ticks < SCROLL_MAX_TICKS) {
-    const down = scrollAccum < 0;   // negative delta = scrolling down = advance the script
-    scrollAccum += down ? SCROLL_TICK_POINTS : -SCROLL_TICK_POINTS;
-    hubRef.broadcast({ type: 'key', code: down ? 'ArrowDown' : 'ArrowUp', hostTap: true, ts: Date.now() });
-    ticks++;
+  hostScrollAccum += dy;   // raw host pixels; direction + gating resolved at flush
+  if (!hostScrollTimer) hostScrollTimer = setInterval(flushHostScroll, HOST_FLUSH_MS);
+}
+function flushHostScroll() {
+  // Drive only while hosting + armed, and never when the TSS window itself is focused
+  // (scrolling the console is navigation, not a cue). Working in your own app → not
+  // focused → the scroll drives the rigs. Idle or blocked → stand the flusher down.
+  const live = sessionActive && sessionMode === 'host' && hubRef && hubRef.armed &&
+    !(win && !win.isDestroyed() && win.isFocused());
+  if (!live || Math.abs(hostScrollAccum) < 1) {
+    hostScrollAccum = 0;
+    if (hostScrollTimer) { clearInterval(hostScrollTimer); hostScrollTimer = null; }
+    return;
   }
-  if (ticks >= SCROLL_MAX_TICKS) scrollAccum = 0;   // drop the tail of a hard flick
+  // CGEvent axis-1: + = up, − = down. The scroll command uses + = down (advance), so negate.
+  let dy = -hostScrollAccum;
+  if (hostTrackInvert) dy = -dy;
+  hostScrollAccum = 0;
+  hubRef.broadcast({ type: 'scroll', dy: Math.round(dy), hostTap: true, ts: Date.now() });
 }
 function applyHostTrack(on) {
   hostTrack = !!on;

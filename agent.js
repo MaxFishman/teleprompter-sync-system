@@ -204,21 +204,68 @@ function guardSkip() {
   }
 }
 
-// --- global scroll (app-agnostic) --------------------------------------------
-// Translate a scroll key into real wheel movement on whatever app is frontmost.
-// No target app, no keystroke feedback path (the console only re-transmits keys,
-// and only when wheel-tracking is on — the inject rate cap backstops that anyway).
+// --- global scroll (app-agnostic), smoothed ----------------------------------
+// Real wheel movement on whatever app is frontmost. Every cue — arrow ticks, the
+// auto-scroll crawl, the host's live trackpad — is coalesced into a steady ~18 Hz
+// stream and played back by keypost as an eased glide, so synced scrolling feels
+// fluid and realtime instead of hopping in fixed steps. One flush per window keeps
+// us under the inject rate cap; a carried remainder means no distance is lost.
 let scrollWarned = false;
+let pendingScroll = 0;            // pixels accumulated, waiting to be played out
+let scrollTimer = null;
+const SCROLL_FLUSH_MS = 55;       // coalesce window (~18 Hz) — under the inject cap
+const SCROLL_GLIDE_MS = 150;      // keypost eases each flush over this long (overlaps → continuous)
+const PENDING_CAP = 6000;         // clamp a backlog if the rate cap throttles us — never lurch
+function warnNoKeypost() {
+  if (!scrollWarned) { scrollWarned = true; process.stderr.write('global scroll needs the keypost helper — run: swiftc keypost.swift -o keypost\n'); }
+}
+function queueSmoothScroll(px) {
+  if (!HAVE_KEYPOST) { warnNoKeypost(); return; }
+  if (!px) return;
+  pendingScroll += px;
+  if (pendingScroll > PENDING_CAP) pendingScroll = PENDING_CAP;
+  else if (pendingScroll < -PENDING_CAP) pendingScroll = -PENDING_CAP;
+  if (scrollTimer) return;
+  scrollTimer = setInterval(() => {
+    if (Math.abs(pendingScroll) < 1) { clearInterval(scrollTimer); scrollTimer = null; return; }
+    if (!injectAllowed()) return;    // throttled this window — keep pending, glide next tick
+    const dy = Math.round(INVERT_SCROLL ? -pendingScroll : pendingScroll);
+    pendingScroll = 0;
+    if (dy) execFile(KEYPOST, ['scrollsmooth', String(dy), String(SCROLL_GLIDE_MS)], () => {});
+  }, SCROLL_FLUSH_MS);
+  scrollTimer.unref && scrollTimer.unref();
+}
 function injectScroll(code) {
-  if (!HAVE_KEYPOST) {
-    if (!scrollWarned) { scrollWarned = true; process.stderr.write('global scroll needs the keypost helper — run: swiftc keypost.swift -o keypost\n'); }
-    return;
-  }
   const delta = scrollDeltaFor(code);
   if (delta == null) return;         // not a scroll key — nothing to do in scroll mode
-  if (!injectAllowed()) return;      // safety: never let a feedback loop flood the OS
-  const dy = Math.round(INVERT_SCROLL ? -delta : delta);
-  execFile(KEYPOST, ['scroll', String(dy)], () => {});
+  // Home / End (and Re-home's Home) are jumps to the very top/bottom — send them
+  // straight through, uncoalesced and unclamped, so they actually reach the end.
+  if (code === 'Home' || code === 'End') {
+    pendingScroll = 0;               // cancel any in-flight glide; the jump wins
+    if (!HAVE_KEYPOST) { warnNoKeypost(); return; }
+    if (!injectAllowed()) return;
+    const dy = Math.round(INVERT_SCROLL ? -delta : delta);
+    if (dy) execFile(KEYPOST, ['scrollsmooth', String(dy), '200'], () => {});
+    return;
+  }
+  queueSmoothScroll(delta);
+}
+// A proportional scroll delta (the host's live trackpad tracking). In global-scroll
+// mode it feeds the smooth queue directly; in app-key mode it's quantized locally
+// into arrow presses so a named teleprompter still follows, with no focus steal.
+let appScrollAccum = 0;
+const APP_SCROLL_STEP = 40;        // host pixels per arrow press in app-key mode
+function scrollCmd(dy) {
+  dy = Number(dy) || 0;
+  if (!dy) return;
+  if (MODE === 'scroll') { queueSmoothScroll(dy); return; }
+  appScrollAccum += dy;
+  let guard = 0;
+  while (Math.abs(appScrollAccum) >= APP_SCROLL_STEP && guard++ < 12) {
+    const down = appScrollAccum > 0;   // + = down = advance the script
+    appScrollAccum += down ? -APP_SCROLL_STEP : APP_SCROLL_STEP;
+    inject(down ? 'ArrowDown' : 'ArrowUp');
+  }
 }
 
 // --- injection ---------------------------------------------------------------
@@ -281,7 +328,7 @@ function mouse(m) {
     case 'click':    args = ['click', n(m.nx), n(m.ny), b]; break;
     case 'moveby':   args = ['moveby', n(m.dx), n(m.dy)]; break;
     case 'clickcur': args = ['clickcur', b]; break;
-    case 'scroll':   args = ['scroll', String(Math.round(Number(m.dy) || 0))]; break;
+    case 'scroll':   queueSmoothScroll(Math.round(Number(m.dy) || 0)); return;  // smoothed glide
     default: return;
   }
   execFile(KEYPOST, args, () => {});
@@ -376,11 +423,12 @@ function connect() {
             // Dedupe injected commands by seq: the hub may re-deliver a critical
             // command (All-stop, Roll, Re-home) until it's acked, so skip one we've
             // already executed — the ack above still tells the hub to stop resending.
-            const dup = (msg.type === 'key' || msg.type === 'mouse') && msg.seq != null && msg.seq <= lastExecSeq;
+            const dup = (msg.type === 'key' || msg.type === 'mouse' || msg.type === 'scroll') && msg.seq != null && msg.seq <= lastExecSeq;
             if (msg.type === 'hello') { myId = msg.id; }
             else if (dup) { /* already executed this command — ack only */ }
             else if (msg.hostTap && HOST_RIG) { if (msg.seq != null) lastExecSeq = msg.seq; /* host already moved by the real trackpad — don't double-drive */ }
             else if (msg.type === 'key' && msg.code) { if (msg.seq != null) lastExecSeq = msg.seq; inject(msg.code); }
+            else if (msg.type === 'scroll') { if (msg.seq != null) lastExecSeq = msg.seq; scrollCmd(msg.dy); }
             else if (msg.type === 'mouse') { if (msg.seq != null) lastExecSeq = msg.seq; mouse(msg); }
             else if (msg.type === 'speed' && (msg.id === 'all' || Number(msg.id) === myId)) {
               SPEED = Math.max(1, Math.min(10, Math.round(Number(msg.value) || 1)));

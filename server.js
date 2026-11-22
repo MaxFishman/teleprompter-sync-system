@@ -58,7 +58,7 @@ function createHub() {
     sentAt.set(cmdSeq, Date.now());
     if (sentAt.size > 120) sentAt.delete(sentAt.keys().next().value);
     const line = `data: ${JSON.stringify(payload)}\n\n`;
-    const gated = payload.type === 'key' || payload.type === 'mouse'; // skip disabled rigs
+    const gated = payload.type === 'key' || payload.type === 'mouse' || payload.type === 'scroll'; // skip disabled rigs
     for (const agent of agents.values()) {
       if (gated && agent.enabled === false) continue;
       try { agent.res.write(line); } catch (_) { removeAgent(agent.id, "write-error"); }
