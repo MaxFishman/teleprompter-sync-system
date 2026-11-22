@@ -3,6 +3,19 @@
 All notable changes to **Teleprompter Sync System (TSS)** are recorded here.
 Format based on [Keep a Changelog](https://keepachangelog.com/). Dates are ISO (YYYY-MM-DD).
 
+## [1.13.1] - 2026-11-21
+
+### Changed
+- **Smoother global scroll** — synced scrolling now glides instead of hopping. The host's live
+  trackpad is streamed as a *proportional* delta at ~20 Hz (no more coarse fixed-step quantizing), and
+  every global-scroll rig coalesces all cues — host trackpad, the auto-scroll crawl, arrow taps — into a
+  steady ~18 Hz stream played back by a new eased `scrollsmooth` primitive in `keypost` (ease-out,
+  sub-pixel-exact, carried remainder so no distance drifts). The result feels natural and realtime
+  rather than jittery. Home/End and Re-home still jump straight to the ends. A new lightweight `scroll`
+  command carries the proportional delta; each rig realizes it per its mode (smooth wheel in
+  global-scroll mode, locally-quantized arrow presses in app-key mode, no focus steal).
+  (`keypost.swift`, `agent.js`, `electron/main.js`, `server.js`)
+
 ## [1.13.0] - 2026-11-21
 
 ### Added
